@@ -160,9 +160,10 @@ function applyContextModeFilter(params: {
   if (contextMode !== "lightweight") {
     return params.files;
   }
+  // Identity files persist across lightweight modes for continuity.
   // Heartbeat scratch is injected by the heartbeat runner, not bootstrap files.
-  // Cron/default lightweight mode also keeps bootstrap context empty on purpose.
-  return [];
+  const identityFileNames = new Set(["SOUL.md", "IDENTITY.md"]);
+  return params.files.filter((file) => identityFileNames.has(file.name));
 }
 
 function filterCompletedWorkspaceBootstrapFile(
