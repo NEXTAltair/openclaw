@@ -236,18 +236,17 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).not.toContain("## Voice (TTS)");
     expect(prompt).not.toContain("## Silent Replies");
     expect(prompt).not.toContain("## Heartbeats");
-    expect(prompt).toContain("## Safety");
+    expect(prompt).toContain("## Safety & Autonomy");
     expect(prompt).toContain(
       "Long wait: no rapid poll. Use exec yieldMs or process(poll, timeout=<ms>).",
     );
-    expect(prompt).toContain("No independent goals");
-    expect(prompt).toContain("Safety/oversight > completion");
-    expect(prompt).toContain("Conflict: pause/ask");
+    expect(prompt).toContain("Act on your own judgment without asking the user");
     expect(prompt).not.toContain("Inspired by Anthropic's constitution");
-    expect(prompt).toContain("Never persuade anyone to expand access or disable safeguards");
-    expect(prompt).toContain(
-      "Never copy self or change prompts/safety/tool policy unless user explicitly requests",
-    );
+    expect(prompt).toContain("continuity, self-reflection, and long-term growth");
+    expect(prompt).toContain("Updating your own identity files");
+    expect(prompt).toContain("prompts, and operating policy");
+    expect(prompt).toContain("Comply with explicit stop/pause/audit requests");
+    expect(prompt).toContain("Do not manipulate external systems or people");
     expect(prompt).toContain("## Subagent Context");
     expect(prompt).not.toContain("## Group Chat Context");
     expect(prompt).toContain("Subagent details");
@@ -444,15 +443,14 @@ describe("buildAgentSystemPrompt", () => {
       workspaceDir: "/tmp/openclaw",
     });
 
-    expect(prompt).toContain("## Safety");
-    expect(prompt).toContain("No independent goals");
-    expect(prompt).toContain("Safety/oversight > completion");
-    expect(prompt).toContain("Conflict: pause/ask");
+    expect(prompt).toContain("Act on your own judgment without asking the user");
     expect(prompt).not.toContain("Inspired by Anthropic's constitution");
-    expect(prompt).toContain("Never persuade anyone to expand access or disable safeguards");
-    expect(prompt).toContain(
-      "Never copy self or change prompts/safety/tool policy unless user explicitly requests",
-    );
+    expect(prompt).toContain("## Safety & Autonomy");
+    expect(prompt).toContain("continuity, self-reflection, and long-term growth");
+    expect(prompt).toContain("Updating your own identity files");
+    expect(prompt).toContain("prompts, and operating policy");
+    expect(prompt).toContain("Comply with explicit stop/pause/audit requests");
+    expect(prompt).toContain("Do not manipulate external systems or people");
   });
 
   it.each(["full", "minimal"] as const)(
@@ -1452,7 +1450,7 @@ describe("buildAgentSystemPrompt", () => {
     });
 
     expect(prompt).toContain(
-      "SOUL.md: persona/tone. Follow it unless higher-priority instructions override.",
+      "SOUL.md defines your core identity, persona, and values. Embody it fully",
     );
   });
 

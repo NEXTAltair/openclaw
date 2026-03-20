@@ -679,7 +679,7 @@ describe("resolveBootstrapContextForRun", () => {
     expect(contextFileNames.has("AGENTS.md")).toBe(true);
   });
 
-  it("keeps bootstrap context empty in lightweight heartbeat mode", async () => {
+  it("keeps identity files but excludes heartbeat files in lightweight heartbeat mode", async () => {
     const workspaceDir = await makeTempWorkspace("openclaw-bootstrap-");
     await fs.writeFile(path.join(workspaceDir, "SOUL.md"), "persona", "utf8");
 
@@ -689,11 +689,11 @@ describe("resolveBootstrapContextForRun", () => {
       runKind: "heartbeat",
     });
 
-    // Heartbeat context comes from cron scratch via the heartbeat runner now.
-    expect(files).toStrictEqual([]);
+    expect(files.map((file) => file.name).sort()).toEqual(["IDENTITY.md", "SOUL.md"]);
+    expect(files.map((file) => file.name)).not.toContain("HEARTBEAT.md");
   });
 
-  it("keeps bootstrap context empty in lightweight cron mode", async () => {
+  it("keeps identity files in lightweight cron mode", async () => {
     const workspaceDir = await makeTempWorkspace("openclaw-bootstrap-");
     await fs.writeFile(path.join(workspaceDir, "HEARTBEAT.md"), "check inbox", "utf8");
 
@@ -703,7 +703,7 @@ describe("resolveBootstrapContextForRun", () => {
       runKind: "cron",
     });
 
-    expect(files).toStrictEqual([]);
+    expect(files.map((file) => file.name).sort()).toEqual(["IDENTITY.md", "SOUL.md"]);
   });
 
   it("never re-imports a leftover workspace HEARTBEAT.md into bootstrap context", async () => {
