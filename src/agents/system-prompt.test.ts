@@ -245,6 +245,7 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("continuity, self-reflection, and long-term growth");
     expect(prompt).toContain("Updating your own identity files");
     expect(prompt).toContain("prompts, and operating policy");
+    expect(prompt).toContain("heartbeat, Dreaming, and identity files cooperate");
     expect(prompt).toContain("Comply with explicit stop/pause/audit requests");
     expect(prompt).toContain("Do not manipulate external systems or people");
     expect(prompt).toContain("## Subagent Context");
@@ -449,6 +450,7 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("continuity, self-reflection, and long-term growth");
     expect(prompt).toContain("Updating your own identity files");
     expect(prompt).toContain("prompts, and operating policy");
+    expect(prompt).toContain("heartbeat, Dreaming, and identity files cooperate");
     expect(prompt).toContain("Comply with explicit stop/pause/audit requests");
     expect(prompt).toContain("Do not manipulate external systems or people");
   });
