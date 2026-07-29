@@ -1,5 +1,6 @@
 // Safe gateway restart tests cover operator-facing acknowledgement copy.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { shouldUseImplicitSafeRestart } from "./lifecycle-safe-restart.js";
 
 const callGatewayCli = vi.hoisted(() => vi.fn());
 const refreshLegacySystemdServiceMetadata = vi.hoisted(() =>
@@ -90,6 +91,32 @@ describe("runSafeGatewayRestart", () => {
         result: "scheduled",
       }),
     );
+  });
+
+  const gatewayEnv = {
+    OPENCLAW_SERVICE_KIND: "gateway",
+    OPENCLAW_GATEWAY_SERVICE_PID: "4200",
+  };
+
+  it("uses safe restart for a plain command running inside the gateway service", () => {
+    expect(shouldUseImplicitSafeRestart({}, gatewayEnv)).toBe(true);
+  });
+
+  it("does not override explicit lifecycle controls", () => {
+    expect(shouldUseImplicitSafeRestart({ safe: true }, gatewayEnv)).toBe(false);
+    expect(shouldUseImplicitSafeRestart({ force: true }, gatewayEnv)).toBe(false);
+    expect(shouldUseImplicitSafeRestart({ wait: "30s" }, gatewayEnv)).toBe(false);
+    expect(shouldUseImplicitSafeRestart({ skipDeferral: true }, gatewayEnv)).toBe(false);
+  });
+
+  it("does not affect commands outside the gateway service", () => {
+    expect(shouldUseImplicitSafeRestart({}, {})).toBe(false);
+    expect(
+      shouldUseImplicitSafeRestart(
+        {},
+        { OPENCLAW_SERVICE_KIND: "gateway", OPENCLAW_GATEWAY_SERVICE_PID: "invalid" },
+      ),
+    ).toBe(false);
   });
 
   it("keeps the RPC restart while skipping ineligible service mutation", async () => {

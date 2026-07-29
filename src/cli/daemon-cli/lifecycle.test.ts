@@ -232,11 +232,15 @@ describe("runDaemonRestart health checks", () => {
   beforeEach(() => {
     envSnapshot = captureEnv([
       "OPENCLAW_CONTAINER_HINT",
+      "OPENCLAW_GATEWAY_SERVICE_PID",
       "OPENCLAW_PROFILE",
+      "OPENCLAW_SERVICE_KIND",
       "OPENCLAW_STATE_DIR",
       "OPENCLAW_SYSTEMD_UNIT",
     ]);
     delete process.env.OPENCLAW_CONTAINER_HINT;
+    delete process.env.OPENCLAW_GATEWAY_SERVICE_PID;
+    delete process.env.OPENCLAW_SERVICE_KIND;
     service.readCommand.mockReset();
     service.readRuntime.mockReset().mockResolvedValue({ status: "stopped" });
     service.restart.mockReset().mockResolvedValue({ outcome: "completed" });

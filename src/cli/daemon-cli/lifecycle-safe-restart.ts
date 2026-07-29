@@ -13,6 +13,23 @@ import type { DaemonLifecycleOptions } from "./types.js";
 
 const SAFE_RESTART_METADATA_REFRESH_TIMEOUT_MS = 5_000;
 
+export function shouldUseImplicitSafeRestart(
+  opts: DaemonLifecycleOptions,
+  env: NodeJS.ProcessEnv,
+): boolean {
+  if (
+    opts.safe === true ||
+    opts.force === true ||
+    opts.wait !== undefined ||
+    opts.skipDeferral === true ||
+    env.OPENCLAW_SERVICE_KIND !== "gateway"
+  ) {
+    return false;
+  }
+  const servicePid = Number.parseInt(env.OPENCLAW_GATEWAY_SERVICE_PID ?? "", 10);
+  return Number.isSafeInteger(servicePid) && servicePid > 0;
+}
+
 function formatSafeRestartWarnings(result: SafeGatewayRestartRequestResult): string[] | undefined {
   return result.preflight.blockers.length === 0 ? undefined : [result.preflight.summary];
 }
