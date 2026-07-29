@@ -2091,6 +2091,67 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
     );
   });
 
+  it("preserves runtime-owned assistant text when materializing auto-TTS media", async () => {
+    await withTranscriptFixtureState("openclaw-chat-send-owned-tts-", async (fixtureDir) => {
+      const audioPath = path.join(fixtureDir, "tts.mp3");
+      fs.writeFileSync(audioPath, Buffer.from([0xff, 0xfb, 0x90, 0x00]));
+      mockState.config = {
+        agents: {
+          defaults: {
+            workspace: fixtureDir,
+          },
+        },
+      };
+      const visibleText = "Run this command:\n\n```sh\nopenclaw qr\n```";
+      await appendSourceReplyMirrorEntry({
+        idempotencyKey: "runtime-owned-tts-assistant",
+        text: visibleText,
+        provider: "openai",
+        model: "codex",
+      });
+      mockState.triggerAgentRunStart = true;
+      mockState.dispatchedReplies = [
+        {
+          kind: "final",
+          payload: setReplyPayloadMetadata(
+            {
+              text: visibleText,
+              spokenText: visibleText,
+              mediaUrl: audioPath,
+              mediaUrls: [audioPath],
+              trustedLocalMedia: true,
+              audioAsVoice: true,
+              ttsSupplement: { spokenText: visibleText },
+            },
+            {
+              assistantTranscriptOwned: true,
+              assistantTranscriptIdempotencyKey: "runtime-owned-tts-assistant",
+            },
+          ),
+        },
+      ];
+      const { send } = createChatRequestFixture();
+
+      await send({
+        idempotencyKey: "idem-owned-tts",
+        expectBroadcast: false,
+        waitFor: "dedupe",
+      });
+
+      const messages = await readActiveAssistantTranscriptMessages();
+      expect(messages).toHaveLength(1);
+      expect(messages[0]?.idempotencyKey).toBe("runtime-owned-tts-assistant");
+      const content = Array.isArray(messages[0]?.content)
+        ? (messages[0].content as Array<Record<string, unknown>>)
+        : [];
+      expect(content.filter((block) => block.type === "text")).toEqual([
+        { type: "text", text: visibleText },
+      ]);
+      expect(content.filter((block) => block.type === "attachment")).toHaveLength(1);
+      expect(JSON.stringify(content)).not.toContain("Audio reply");
+    });
+  });
+
   it("does not mirror agent-run stale media final text from live delivery", async () => {
     const transcriptDir = await createTranscriptFixture("openclaw-chat-send-agent-stale-tts-");
     const staleAudioPath = path.join(transcriptDir, "stale.mp3");
