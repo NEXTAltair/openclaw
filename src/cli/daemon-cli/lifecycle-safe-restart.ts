@@ -46,12 +46,17 @@ export function resolveGatewayRestartIntentOptions(
   return opts.wait === undefined ? undefined : { waitMs: parseDurationMs(opts.wait) };
 }
 
+type SafeGatewayRestartTransportOptions = {
+  useStoredDeviceAuth?: boolean;
+};
+
 /** Request an OpenClaw-aware restart through the running Gateway. */
 type SafeRestartTarget = { pid: number; ownerId: string; port: number };
 
 export async function runSafeGatewayRestart(
   opts: DaemonLifecycleOptions,
   target?: SafeRestartTarget,
+  transport: SafeGatewayRestartTransportOptions = {},
 ): Promise<boolean> {
   if (opts.force) {
     throw new Error("--safe cannot be combined with --force; omit --safe to force restart now");
@@ -111,6 +116,13 @@ export async function runSafeGatewayRestart(
         }
       : {}),
     timeoutMs: 10_000,
+    ...(transport.useStoredDeviceAuth === true
+      ? {
+          useStoredDeviceAuth: true,
+          requiredStoredDeviceAuthScopes: ["operator.admin"],
+          ignoreEnvUrlOverride: true,
+        }
+      : {}),
   });
   if (target && result.restart.pid !== target.pid) {
     throw new Error("invalid safe restart acknowledgement");
@@ -148,4 +160,20 @@ export async function runSafeGatewayRestart(
     }
   }
   return true;
+}
+
+/** Handle explicit safe restarts and implicit agent-originated restarts. */
+export async function requestSafeGatewayRestartIfNeeded(
+  opts: DaemonLifecycleOptions,
+  env: NodeJS.ProcessEnv,
+): Promise<boolean | undefined> {
+  const implicitSafeRestart = shouldUseImplicitSafeRestart(opts, env);
+  if (!opts.safe && !implicitSafeRestart) {
+    return undefined;
+  }
+  return await runSafeGatewayRestart(
+    { ...opts, safe: true },
+    undefined,
+    { useStoredDeviceAuth: implicitSafeRestart },
+  );
 }
