@@ -54,6 +54,7 @@ import { isRoleAuthorizedForMethod, parseGatewayRole } from "./role-policy.js";
 import { authenticatedProfileUnavailableError } from "./server-methods/gateway-client-identity.js";
 import { createLazyCoreHandlers, lazyHandlerModule } from "./server-methods/lazy-core-handlers.js";
 import { isTargetedNonSafeGatewayRestartRequest } from "./server-methods/restart-request.js";
+import { restartHandlers } from "./server-methods/restart.js";
 import type {
   GatewayRequestContext,
   GatewayRequestHandler,
@@ -152,7 +153,6 @@ const CORE_GATEWAY_HANDLER_MODULES = {
   migrations: () =>
     import("./server-methods/migrations.js").then((module) => module.migrationsHandlers),
   push: () => import("./server-methods/push.js").then((module) => module.pushHandlers),
-  restart: () => import("./server-methods/restart.js").then((module) => module.restartHandlers),
   suspend: () => import("./server-methods/suspend.js").then((module) => module.suspendHandlers),
   send: () => import("./server-methods/send.js").then((module) => module.sendHandlers),
   "sessions-files": () =>
@@ -403,16 +403,19 @@ const coreGatewayHandlerModules = Object.entries(CORE_GATEWAY_HANDLER_MODULES) a
   [CoreGatewayHandlerFamily, CoreGatewayHandlerModuleLoader]
 >;
 
-export const coreGatewayHandlers: GatewayRequestHandlers = Object.fromEntries(
-  coreGatewayHandlerModules.flatMap(([family, loadModule]) =>
-    Object.entries(
-      createLazyCoreHandlers({
-        methods: coreGatewayHandlerMethodNames.get(family) ?? [],
-        loadHandlers: lazyHandlerModule(loadModule, (handlers) => handlers),
-      }),
+export const coreGatewayHandlers: GatewayRequestHandlers = {
+  ...Object.fromEntries(
+    coreGatewayHandlerModules.flatMap(([family, loadModule]) =>
+      Object.entries(
+        createLazyCoreHandlers({
+          methods: coreGatewayHandlerMethodNames.get(family) ?? [],
+          loadHandlers: lazyHandlerModule(loadModule, (handlers) => handlers),
+        }),
+      ),
     ),
   ),
-);
+  ...restartHandlers,
+};
 
 /** Builds the per-request method registry from core, plugin, and explicit extra handlers. */
 export function createRequestGatewayMethodRegistry(
