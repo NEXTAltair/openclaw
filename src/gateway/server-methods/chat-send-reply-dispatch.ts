@@ -1,5 +1,8 @@
 import { isAudioFileName } from "@openclaw/media-core/mime";
-import { resolveSendableOutboundReplyParts } from "openclaw/plugin-sdk/reply-payload";
+import {
+  isReplyPayloadTtsSupplement,
+  resolveSendableOutboundReplyParts,
+} from "openclaw/plugin-sdk/reply-payload";
 import { getReplyPayloadMetadata, type ReplyPayload } from "../../auto-reply/reply-payload.js";
 import type { ReplyDispatcherOptions } from "../../auto-reply/reply/reply-dispatcher.js";
 import { readSessionTranscriptWatermark } from "../../config/sessions/session-accessor.js";
@@ -235,6 +238,7 @@ export function createChatSendReplyDispatch(params: {
       const rewritten = await rewriteAssistantTranscriptMessageByIdempotencyKey({
         content: persistedContentForAppend,
         idempotencyKey: ownedTranscriptIdempotencyKey,
+        preserveExistingText: isReplyPayloadTtsSupplement(payload),
         scope: transcriptScope,
       });
       if (rewritten) {
