@@ -2103,9 +2103,10 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
         },
       };
       const visibleText = "Run this command:\n\n```sh\nopenclaw qr\n```";
+      const spokenText = "Read the command aloud.";
       await appendSourceReplyMirrorEntry({
         idempotencyKey: "runtime-owned-tts-assistant",
-        text: visibleText,
+        text: `${visibleText}\n\n[[tts:text]]${spokenText}[[/tts:text]]`,
         provider: "openai",
         model: "codex",
       });
@@ -2116,12 +2117,12 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
           payload: setReplyPayloadMetadata(
             {
               text: visibleText,
-              spokenText: visibleText,
+              spokenText,
               mediaUrl: audioPath,
               mediaUrls: [audioPath],
               trustedLocalMedia: true,
               audioAsVoice: true,
-              ttsSupplement: { spokenText: visibleText },
+              ttsSupplement: { spokenText },
             },
             {
               assistantTranscriptOwned: true,
@@ -2149,6 +2150,8 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
       ]);
       expect(content.filter((block) => block.type === "attachment")).toHaveLength(1);
       expect(JSON.stringify(content)).not.toContain("Audio reply");
+      expect(JSON.stringify(content)).not.toContain("[[tts:text]]");
+      expect(JSON.stringify(content)).not.toContain(spokenText);
     });
   });
 

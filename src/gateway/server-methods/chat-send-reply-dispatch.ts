@@ -165,13 +165,22 @@ export function createChatSendReplyDispatch(params: {
     if (isSourceReplyTranscriptMirrorPayload(payload)) {
       return;
     }
+    const payloadMetadata = getReplyPayloadMetadata(payload);
+    const ownedTranscriptIdempotencyKey =
+      payloadMetadata?.assistantTranscriptOwned === true
+        ? payloadMetadata.assistantTranscriptIdempotencyKey?.trim()
+        : undefined;
     const ttsSupplementMarker = buildTtsSupplementTranscriptMarker(payload);
+    const transcriptSourcePayload =
+      ownedTranscriptIdempotencyKey && isReplyPayloadTtsSupplement(payload) && payload.text?.trim()
+        ? payload
+        : stripVisibleTextFromTtsSupplement(payload);
     const [transcriptPayload] = await normalizeWebchatReplyMediaPathsForDisplay({
       cfg,
       sessionKey,
       agentId,
       accountId,
-      payloads: [stripVisibleTextFromTtsSupplement(payload)],
+      payloads: [transcriptSourcePayload],
     });
     if (!transcriptPayload) {
       return;
@@ -221,11 +230,6 @@ export function createChatSendReplyDispatch(params: {
     if (!transcriptReply && !persistedAssistantContent?.length && !assistantContent?.length) {
       return;
     }
-    const payloadMetadata = getReplyPayloadMetadata(payload);
-    const ownedTranscriptIdempotencyKey =
-      payloadMetadata?.assistantTranscriptOwned === true
-        ? payloadMetadata.assistantTranscriptIdempotencyKey?.trim()
-        : undefined;
     const transcriptScope = assistantTranscriptScope({
       sessionKey,
       sessionId,
@@ -238,7 +242,6 @@ export function createChatSendReplyDispatch(params: {
       const rewritten = await rewriteAssistantTranscriptMessageByIdempotencyKey({
         content: persistedContentForAppend,
         idempotencyKey: ownedTranscriptIdempotencyKey,
-        preserveExistingText: isReplyPayloadTtsSupplement(payload),
         scope: transcriptScope,
       });
       if (rewritten) {

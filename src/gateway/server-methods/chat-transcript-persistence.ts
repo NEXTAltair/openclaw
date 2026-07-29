@@ -423,7 +423,6 @@ export async function rewriteSourceReplyTranscriptMirrors(params: {
 export async function rewriteAssistantTranscriptMessageByIdempotencyKey(params: {
   content: AssistantDisplayContentBlock[];
   idempotencyKey: string;
-  preserveExistingText?: boolean;
   scope: SessionTranscriptWriteScope;
 }): Promise<{ messageId: string } | null> {
   const idempotencyKey = params.idempotencyKey.trim();
@@ -436,20 +435,12 @@ export async function rewriteAssistantTranscriptMessageByIdempotencyKey(params: 
     if (!target) {
       return null;
     }
-    const content = params.preserveExistingText
-      ? [
-          ...(Array.isArray(target.message.content)
-            ? (target.message.content as AssistantDisplayContentBlock[])
-            : []),
-          ...params.content.filter((block) => block?.type !== "text"),
-        ]
-      : params.content;
     const rewrittenEvents = events.map((event) =>
       transcriptEventId(event) === target.messageId
         ? Object.assign({}, event as Record<string, unknown>, {
             message: {
               ...target.message,
-              content,
+              content: params.content,
             },
           })
         : event,
