@@ -7,6 +7,7 @@ import {
 import type { GatewayMethodRegistryView } from "../methods/descriptor.js";
 import { gatewayClientUploadPolicyError } from "../upload-policy.js";
 import { createLazyCoreHandlers } from "./lazy-core-handlers.js";
+import { restartHandlers } from "./restart.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
 type CoreGatewayHandlerModuleLoader = () => Promise<GatewayRequestHandlers>;
@@ -190,19 +191,24 @@ const CORE_GATEWAY_HANDLER_MODULES = {
   wizard: () => import("./wizard.js").then((module) => module.wizardHandlers),
 } satisfies Record<CoreGatewayHandlerFamily, CoreGatewayHandlerModuleLoader>;
 
-export const coreGatewayHandlers: GatewayRequestHandlers = Object.fromEntries(
-  Array.from(listCoreGatewayHandlerMethodNames()).flatMap(([family, methods]) =>
-    Object.entries(
-      createLazyCoreHandlers({
-        methods,
-        // Failed family imports stay cached until restart, just like successful loads.
-        loadHandlers: createLazyPromise(CORE_GATEWAY_HANDLER_MODULES[family], {
-          cacheRejections: true,
+export const coreGatewayHandlers: GatewayRequestHandlers = {
+  ...Object.fromEntries(
+    Array.from(listCoreGatewayHandlerMethodNames()).flatMap(([family, methods]) =>
+      Object.entries(
+        createLazyCoreHandlers({
+          methods,
+          // Failed family imports stay cached until restart, just like successful loads.
+          loadHandlers: createLazyPromise(CORE_GATEWAY_HANDLER_MODULES[family], {
+            cacheRejections: true,
+          }),
         }),
-      }),
+      ),
     ),
   ),
-);
+  // Restart RPCs stay eagerly resident: a lazy import after an in-place dist rebuild
+  // can resolve a missing chunk and leave the gateway unable to restart itself.
+  ...restartHandlers,
+};
 
 // Canonical receipt owners distinguish replay from new input after authorization.
 // Overrides retain both router fences; a method name alone cannot delegate admission.
