@@ -9,6 +9,7 @@ import {
 import { GATEWAY_EVENTS, listGatewayMethods } from "./server-methods-list.js";
 import { LEGACY_ADVERTISED_GATEWAY_METHODS } from "./server-methods-list.test-fixtures.js";
 import { coreGatewayHandlers } from "./server-methods.js";
+import { restartHandlers } from "./server-methods/restart.js";
 
 describe("GATEWAY_EVENTS", () => {
   it("advertises Talk event streams in hello features", () => {
@@ -122,6 +123,15 @@ describe("listGatewayMethods", () => {
   it("advertises session workspace reveal", () => {
     expect(listGatewayMethods()).toContain("sessions.files.reveal");
     expect(coreGatewayHandlers["sessions.files.reveal"]).toBeTypeOf("function");
+  });
+
+  it("keeps restart handlers eagerly resident across in-place dist rebuilds", () => {
+    expect(coreGatewayHandlers["gateway.restart.request"]).toBe(
+      restartHandlers["gateway.restart.request"],
+    );
+    expect(coreGatewayHandlers["gateway.restart.preflight"]).toBe(
+      restartHandlers["gateway.restart.preflight"],
+    );
   });
 
   it("advertises the versioned activity audit method", () => {
