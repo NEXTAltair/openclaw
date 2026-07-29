@@ -58,6 +58,8 @@ describe("safe gateway restart coordinator", () => {
         cronRuns: 0,
         backgroundExecSessions: 0,
         rootRequests: 0,
+        sessionAdmissions: 0,
+        sessionMutations: 0,
         activeTasks: 0,
         totalActive: 0,
       },
@@ -159,6 +161,46 @@ describe("safe gateway restart coordinator", () => {
       request?.release();
       handoff?.release();
     }
+  });
+
+  it("defers restart while a foreground session turn is admitted", async () => {
+    scheduleGatewaySigusr1Restart.mockReturnValueOnce({
+      ok: true,
+      pid: 123,
+      signal: "SIGUSR1",
+      delayMs: 0,
+      mode: "emit",
+      coalesced: false,
+      cooldownMsApplied: 0,
+    });
+    const result = scheduleSafeGatewayRestart({
+      reason: "test.foreground-turn",
+      inspect: {
+        getQueueSize: () => 0,
+        getPendingReplies: () => 0,
+        getEmbeddedRuns: () => 0,
+        getCronRuns: () => 0,
+        getBackgroundExecSessions: () => 0,
+        getRootRequests: () => 0,
+        getSessionAdmissions: () => 1,
+        getSessionMutations: () => 0,
+        getActiveTasks: () => 0,
+        getTaskBlockers: () => [],
+      },
+    });
+
+    expect(result.status).toBe("deferred");
+    expect(result.preflight.counts).toMatchObject({
+      sessionAdmissions: 1,
+      totalActive: 1,
+    });
+    expect(result.preflight.blockers).toEqual([
+      {
+        kind: "session-admission",
+        count: 1,
+        message: "1 admitted session turn(s)",
+      },
+    ]);
   });
 
   it("keeps truncated task titles on complete UTF-16 code points", () => {

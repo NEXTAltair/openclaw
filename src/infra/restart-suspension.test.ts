@@ -7,6 +7,10 @@ import {
   resetGatewayWorkAdmission,
   tryBeginGatewayPreparedRestartRootWorkAdmission,
 } from "../process/gateway-work-admission.js";
+import {
+  beginSessionWorkAdmission,
+  getActiveSessionWorkAdmissionCount,
+} from "../sessions/session-lifecycle-admission.js";
 import type { GatewayActiveWorkInspectors } from "./gateway-active-work.js";
 import {
   getGatewaySuspendStatus,
@@ -237,6 +241,52 @@ describe("scheduled restart during gateway suspension", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(countSigusr1Emits(emitSpy.mock.calls)).toBe(2);
     expect(preRestartCheck).toHaveBeenCalledTimes(4);
+  });
+
+  it("keeps foreground turn admission open while restart is deferred and accepts a turn after restart", async () => {
+    const emitSpy = vi.spyOn(process, "emit");
+    setPreRestartDeferralCheck(() => getActiveSessionWorkAdmissionCount());
+
+    const firstTurn = await beginSessionWorkAdmission({
+      scope: "restart-deferral",
+      identities: ["agent:main:dashboard:first"],
+      assertAllowed: () => {},
+    });
+    scheduleGatewaySigusr1Restart({
+      delayMs: 0,
+      reason: "agent-requested-restart",
+      skipCooldown: true,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(countSigusr1Emits(emitSpy.mock.calls)).toBe(0);
+    expect(isGatewayWorkAdmissionClosed()).toBe(false);
+
+    const queuedUserTurn = await beginSessionWorkAdmission({
+      scope: "restart-deferral",
+      identities: ["agent:main:dashboard:next"],
+      assertAllowed: () => {},
+    });
+    expect(getActiveSessionWorkAdmissionCount()).toBe(2);
+
+    firstTurn.release();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(countSigusr1Emits(emitSpy.mock.calls)).toBe(0);
+
+    queuedUserTurn.release();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(countSigusr1Emits(emitSpy.mock.calls)).toBe(1);
+    expect(isGatewayWorkAdmissionClosed()).toBe(true);
+
+    resetGatewayRestartStateForInProcessRestart();
+    resetGatewayWorkAdmission();
+    const postRestartTurn = await beginSessionWorkAdmission({
+      scope: "restart-deferral",
+      identities: ["agent:main:dashboard:post-restart"],
+      assertAllowed: () => {},
+    });
+    expect(getActiveSessionWorkAdmissionCount()).toBe(1);
+    postRestartTurn.release();
   });
 
   it("cancels delayed restart work during a transient reset", async () => {
