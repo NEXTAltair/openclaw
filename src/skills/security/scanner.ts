@@ -248,7 +248,8 @@ const SKILL_CONTENT_RULES: SourceRule[] = [
     ruleId: "secret-exfiltration",
     severity: "critical",
     message: "Skill text may exfiltrate environment variables",
-    pattern: /\b(process\.env|env)\b.{0,80}\b(fetch|curl|wget|http|https)\b/i,
+    pattern:
+      /(?:\bprocess\.env\b|\bDeno\.env\b|\bgetenv\s*\(|\$\{?[A-Z][A-Z0-9_]{2,}\}?)[^\n]{0,80}\b(fetch|curl|wget|http|https)\b/i,
   },
   {
     ruleId: "destructive-delete",
