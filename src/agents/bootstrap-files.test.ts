@@ -694,7 +694,7 @@ describe("resolveBootstrapContextForRun", () => {
       runKind: "heartbeat",
     });
 
-    expect(files.map((file) => file.name).sort()).toEqual(["IDENTITY.md", "SOUL.md"]);
+    expect(files.map((file) => file.name).toSorted()).toEqual(["IDENTITY.md", "SOUL.md"]);
     expect(files.map((file) => file.name)).not.toContain("HEARTBEAT.md");
   });
 
@@ -708,7 +708,7 @@ describe("resolveBootstrapContextForRun", () => {
       runKind: "cron",
     });
 
-    expect(files.map((file) => file.name).sort()).toEqual(["IDENTITY.md", "SOUL.md"]);
+    expect(files.map((file) => file.name).toSorted()).toEqual(["IDENTITY.md", "SOUL.md"]);
   });
 
   it("keeps identity files in lightweight subagent mode", async () => {
@@ -721,7 +721,7 @@ describe("resolveBootstrapContextForRun", () => {
       contextMode: "lightweight",
     });
 
-    expect(files.map((file) => file.name).sort()).toEqual(["IDENTITY.md", "SOUL.md"]);
+    expect(files.map((file) => file.name).toSorted()).toEqual(["IDENTITY.md", "SOUL.md"]);
   });
 
   it("never re-imports a leftover workspace HEARTBEAT.md into bootstrap context", async () => {

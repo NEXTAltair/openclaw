@@ -5,17 +5,9 @@ import { captureEnv } from "../../test-utils/env.js";
 import {
   expectRestartError,
   requireMockCallArg,
+  type RestartHealthSnapshot,
   type RestartParams,
 } from "./lifecycle.test-helpers.js";
-
-type RestartHealthSnapshot = {
-  healthy: boolean;
-  staleGatewayPids: number[];
-  runtime: { status?: string };
-  portUsage: { port: number; status: string; listeners: []; hints: []; errors?: string[] };
-  waitOutcome?: string;
-  elapsedMs?: number;
-};
 
 const service = {
   readCommand: vi.fn(),
