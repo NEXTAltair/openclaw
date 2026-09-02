@@ -13,7 +13,7 @@ import type { DaemonLifecycleOptions } from "./types.js";
 
 const SAFE_RESTART_METADATA_REFRESH_TIMEOUT_MS = 5_000;
 
-export function shouldUseImplicitSafeRestart(
+function shouldUseImplicitSafeRestart(
   opts: DaemonLifecycleOptions,
   env: NodeJS.ProcessEnv,
 ): boolean {
@@ -171,9 +171,7 @@ export async function requestSafeGatewayRestartIfNeeded(
   if (!opts.safe && !implicitSafeRestart) {
     return undefined;
   }
-  return await runSafeGatewayRestart(
-    { ...opts, safe: true },
-    undefined,
-    { useStoredDeviceAuth: implicitSafeRestart },
-  );
+  return await runSafeGatewayRestart({ ...opts, safe: true }, undefined, {
+    useStoredDeviceAuth: implicitSafeRestart,
+  });
 }

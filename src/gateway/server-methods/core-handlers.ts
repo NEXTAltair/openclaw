@@ -9,6 +9,15 @@ import { restartHandlers } from "./restart.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
 type CoreGatewayHandlerModuleLoader = () => Promise<GatewayRequestHandlers>;
+// Restart RPCs are eager owners, not lazy families: they must survive an in-place
+// dist rebuild long enough to schedule the replacement process.
+type LazyCoreGatewayHandlerFamily = Exclude<CoreGatewayHandlerFamily, "restart">;
+
+function isLazyCoreGatewayHandlerFamily(
+  family: CoreGatewayHandlerFamily,
+): family is LazyCoreGatewayHandlerFamily {
+  return family !== "restart";
+}
 
 const CORE_GATEWAY_HANDLER_MODULES = {
   agent: () => import("./agent.js").then((module) => module.agentHandlers),
@@ -81,7 +90,6 @@ const CORE_GATEWAY_HANDLER_MODULES = {
   "progress-card": () => import("./progress-card.js").then((module) => module.progressCardHandlers),
   migrations: () => import("./migrations.js").then((module) => module.migrationsHandlers),
   push: () => import("./push.js").then((module) => module.pushHandlers),
-  restart: () => import("./restart.js").then((module) => module.restartHandlers),
   suspend: () => import("./suspend.js").then((module) => module.suspendHandlers),
   send: () => import("./send.js").then((module) => module.sendHandlers),
   "sessions-files": () =>
@@ -162,12 +170,15 @@ const CORE_GATEWAY_HANDLER_MODULES = {
   "system-changes": () =>
     import("./system-changes.js").then((module) => module.systemChangesHandlers),
   wizard: () => import("./wizard.js").then((module) => module.wizardHandlers),
-} satisfies Record<CoreGatewayHandlerFamily, CoreGatewayHandlerModuleLoader>;
+} satisfies Record<LazyCoreGatewayHandlerFamily, CoreGatewayHandlerModuleLoader>;
 
 export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...Object.fromEntries(
-    Array.from(listCoreGatewayHandlerMethodNames()).flatMap(([family, methods]) =>
-      Object.entries(
+    Array.from(listCoreGatewayHandlerMethodNames()).flatMap(([family, methods]) => {
+      if (!isLazyCoreGatewayHandlerFamily(family)) {
+        return [];
+      }
+      return Object.entries(
         createLazyCoreHandlers({
           methods,
           // Failed family imports stay cached until restart, just like successful loads.
@@ -175,10 +186,9 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
             cacheRejections: true,
           }),
         }),
-      ),
-    ),
+      );
+    }),
   ),
-  // Restart RPCs stay eagerly resident: a lazy import after an in-place dist rebuild
-  // can resolve a missing chunk and leave the gateway unable to restart itself.
+  // A lazy restart import could resolve after old chunks move during a rebuild.
   ...restartHandlers,
 };
