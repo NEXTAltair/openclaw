@@ -1,9 +1,6 @@
 // Safe gateway restart tests cover operator-facing acknowledgement copy.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  requestSafeGatewayRestartIfNeeded,
-  shouldUseImplicitSafeRestart,
-} from "./lifecycle-safe-restart.js";
+import { requestSafeGatewayRestartIfNeeded } from "./lifecycle-safe-restart.js";
 
 const callGatewayCli = vi.hoisted(() => vi.fn());
 const refreshLegacySystemdServiceMetadata = vi.hoisted(() =>
@@ -101,25 +98,28 @@ describe("runSafeGatewayRestart", () => {
     OPENCLAW_GATEWAY_SERVICE_PID: "4200",
   };
 
-  it("uses safe restart for a plain command running inside the gateway service", () => {
-    expect(shouldUseImplicitSafeRestart({}, gatewayEnv)).toBe(true);
+  it("does not override explicit non-safe lifecycle controls", async () => {
+    await expect(requestSafeGatewayRestartIfNeeded({ force: true }, gatewayEnv)).resolves.toBe(
+      undefined,
+    );
+    await expect(requestSafeGatewayRestartIfNeeded({ wait: "30s" }, gatewayEnv)).resolves.toBe(
+      undefined,
+    );
+    await expect(
+      requestSafeGatewayRestartIfNeeded({ skipDeferral: true }, gatewayEnv),
+    ).resolves.toBe(undefined);
+    expect(callGatewayCli).not.toHaveBeenCalled();
   });
 
-  it("does not override explicit lifecycle controls", () => {
-    expect(shouldUseImplicitSafeRestart({ safe: true }, gatewayEnv)).toBe(false);
-    expect(shouldUseImplicitSafeRestart({ force: true }, gatewayEnv)).toBe(false);
-    expect(shouldUseImplicitSafeRestart({ wait: "30s" }, gatewayEnv)).toBe(false);
-    expect(shouldUseImplicitSafeRestart({ skipDeferral: true }, gatewayEnv)).toBe(false);
-  });
-
-  it("does not affect commands outside the gateway service", () => {
-    expect(shouldUseImplicitSafeRestart({}, {})).toBe(false);
-    expect(
-      shouldUseImplicitSafeRestart(
+  it("does not affect commands outside the gateway service", async () => {
+    await expect(requestSafeGatewayRestartIfNeeded({}, {})).resolves.toBeUndefined();
+    await expect(
+      requestSafeGatewayRestartIfNeeded(
         {},
         { OPENCLAW_SERVICE_KIND: "gateway", OPENCLAW_GATEWAY_SERVICE_PID: "invalid" },
       ),
-    ).toBe(false);
+    ).resolves.toBeUndefined();
+    expect(callGatewayCli).not.toHaveBeenCalled();
   });
 
   it("keeps the RPC restart while skipping ineligible service mutation", async () => {

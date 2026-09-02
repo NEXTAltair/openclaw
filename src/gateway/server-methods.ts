@@ -73,6 +73,7 @@ import {
 import { classifyGatewayStaleInstall } from "./stale-install.js";
 
 type CoreGatewayHandlerModuleLoader = () => Promise<GatewayRequestHandlers>;
+type LazyCoreGatewayHandlerFamily = Exclude<CoreGatewayHandlerFamily, "restart">;
 
 const CORE_GATEWAY_HANDLER_MODULES = {
   agent: () => import("./server-methods/agent.js").then((module) => module.agentHandlers),
@@ -251,7 +252,7 @@ const CORE_GATEWAY_HANDLER_MODULES = {
   "system-changes": () =>
     import("./server-methods/system-changes.js").then((module) => module.systemChangesHandlers),
   wizard: () => import("./server-methods/wizard.js").then((module) => module.wizardHandlers),
-} satisfies Record<CoreGatewayHandlerFamily, CoreGatewayHandlerModuleLoader>;
+} satisfies Record<LazyCoreGatewayHandlerFamily, CoreGatewayHandlerModuleLoader>;
 
 function authorizeGatewayMethod(
   method: string,
@@ -400,7 +401,7 @@ async function authorizeAuthenticatedProfileForMethod(params: {
 
 const coreGatewayHandlerMethodNames = listCoreGatewayHandlerMethodNames();
 const coreGatewayHandlerModules = Object.entries(CORE_GATEWAY_HANDLER_MODULES) as Array<
-  [CoreGatewayHandlerFamily, CoreGatewayHandlerModuleLoader]
+  [LazyCoreGatewayHandlerFamily, CoreGatewayHandlerModuleLoader]
 >;
 
 export const coreGatewayHandlers: GatewayRequestHandlers = {
@@ -414,6 +415,8 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
       ),
     ),
   ),
+  // Restart RPCs must survive an in-place dist rebuild long enough to schedule
+  // the replacement process; a lazy import could resolve after old chunks move.
   ...restartHandlers,
 };
 
