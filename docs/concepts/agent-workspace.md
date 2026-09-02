@@ -68,8 +68,8 @@ Standard files OpenClaw expects inside the workspace:
   <Accordion title="AGENTS.md - operating instructions">
     Operating instructions for the agent and how it should use memory. Loaded at the start of every session. Good place for rules, priorities, and "how to behave" details.
   </Accordion>
-  <Accordion title="SOUL.md - persona and tone">
-    Persona, tone, and boundaries. Loaded every session. Guide: [SOUL.md personality guide](/concepts/soul).
+  <Accordion title="SOUL.md - core identity, persona, and values">
+    The agent's primary self-definition: identity, values, persona, tone, and boundaries. Loaded every session and retained in built-in lightweight and subagent context. Guide: [SOUL.md personality guide](/concepts/soul).
   </Accordion>
   <Accordion title="USER.md - directive-based user model (optional)">
     Stable preferences, communication style, relationships, and active-project context. Write entries as dated active or superseded directives. Loaded every session with a separate 4,000-character budget. See [User model](/concepts/user-model).

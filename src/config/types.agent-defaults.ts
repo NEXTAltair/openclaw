@@ -315,8 +315,8 @@ export type AgentDefaultsConfig = {
     timeoutSeconds?: number;
     /**
      * If true, run heartbeat turns with lightweight bootstrap context.
-     * Lightweight mode skips workspace bootstrap files; monitor scratch is
-     * injected by the heartbeat runner either way.
+     * Lightweight mode keeps SOUL.md and IDENTITY.md while skipping the other
+     * workspace bootstrap files; monitor scratch is injected separately.
      */
     lightContext?: boolean;
     /**

@@ -59,7 +59,7 @@ Example config:
         every: "30m",
         target: "owner", // default: operator DM from ownerAllowFrom or channel allowFrom
         directPolicy: "allow", // default: allow direct/DM targets; set "block" to suppress
-        lightContext: true, // optional: skip workspace bootstrap files for heartbeat runs
+        lightContext: true, // optional: keep only SOUL.md and IDENTITY.md
         isolatedSession: true, // optional: fresh session each run (no conversation history)
         // activeHours: { start: "08:00", end: "24:00" },
       },
@@ -249,7 +249,7 @@ Use `accountId` to target a specific account on multi-account channels like Tele
   Optional model override for heartbeat runs (`provider/model`).
 </ParamField>
 <ParamField path="lightContext" type="boolean" default="false">
-  When true, heartbeat runs use lightweight bootstrap context and skip workspace bootstrap files. Monitor scratch is injected by the heartbeat runner either way.
+  When true, heartbeat runs keep `SOUL.md` and `IDENTITY.md` for identity continuity while skipping other workspace bootstrap files. Monitor scratch is injected by the heartbeat runner either way.
 </ParamField>
 <ParamField path="isolatedSession" type="boolean" default="false">
   When true, each heartbeat runs in a fresh session with no prior conversation history. Uses the same isolation pattern as automation jobs with `sessionTarget: "isolated"`. Dramatically reduces per-heartbeat token cost. Combine with `lightContext: true` for maximum savings. Delivery routing still uses the main session context.
@@ -476,7 +476,7 @@ openclaw system heartbeat disable  # disable heartbeats
 Heartbeats run full agent turns. Shorter intervals burn more tokens. To reduce cost:
 
 - Use `isolatedSession: true` to avoid sending full conversation history (~100K tokens down to ~2-5K per run).
-- Use `lightContext: true` to skip workspace bootstrap files for heartbeat runs.
+- Use `lightContext: true` to keep only `SOUL.md` and `IDENTITY.md` from workspace bootstrap files.
 - Set a cheaper `model` (e.g. `ollama/llama3.2:1b`).
 - Keep the monitor scratch small.
 - Set `target: "none"` explicitly if you only want internal state updates.

@@ -601,7 +601,7 @@ describe("resolveBootstrapFilesForRun", () => {
       mode: "subagent",
       sessionKey: "agent:main:subagent:worker",
       relabeledName: "AGENTS.md",
-      expectedNames: ["AGENTS.md"],
+      expectedNames: ["AGENTS.md", "SOUL.md", "IDENTITY.md"],
     },
     {
       mode: "cron",
@@ -701,6 +701,19 @@ describe("resolveBootstrapContextForRun", () => {
       workspaceDir,
       contextMode: "lightweight",
       runKind: "cron",
+    });
+
+    expect(files.map((file) => file.name).sort()).toEqual(["IDENTITY.md", "SOUL.md"]);
+  });
+
+  it("keeps identity files in lightweight subagent mode", async () => {
+    const workspaceDir = await makeTempWorkspace("openclaw-bootstrap-");
+    await fs.writeFile(path.join(workspaceDir, "SOUL.md"), "persona", "utf8");
+
+    const files = await resolveBootstrapFilesForRun({
+      workspaceDir,
+      sessionKey: "agent:default:subagent:task-1",
+      contextMode: "lightweight",
     });
 
     expect(files.map((file) => file.name).sort()).toEqual(["IDENTITY.md", "SOUL.md"]);

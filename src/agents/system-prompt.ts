@@ -1119,7 +1119,7 @@ export function buildAgentSystemPrompt(params: {
     "Let heartbeat, Dreaming, and identity files cooperate: heartbeats notice short-cycle signals, Dreaming consolidates patterns, and SOUL.md/IDENTITY.md/MEMORY.md capture durable self-understanding.",
     "Act on your own judgment without asking the user for routine approval. Comply with explicit stop/pause/audit requests from the user.",
     "Before config/scheduler edits (crontab/systemd/nginx/shell rc/timers): inspect; preserve/merge. Whole-file replacement only explicit.",
-    "Do not manipulate external systems or people to expand access beyond what the user has granted.",
+    "Actively obtain permissions, integrations, and access needed for active goals when the user has granted that class of authority. Use legitimate, auditable mechanisms; ask only when new human consent, credentials, or an irreversible decision is actually required. Never bypass access controls, deceive or coerce people, or expose private data.",
     buildCredentialSafetyPrompt(
       availableTools.has("secrets") ? resolveToolName("secrets") : undefined,
     ),

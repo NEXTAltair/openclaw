@@ -33,7 +33,7 @@ The prompt is compact, with fixed sections:
 - **Tooling**: structured-tool source-of-truth reminder plus runtime tool-use guidance. When `progress_card` is enabled (`tools.updatePlan`, on by default), its own description explains how to maintain one durable plan and status note, keep at most one step `in_progress`, and skip routine updates that do not change the picture.
 - **Execution Bias**: act in-turn on actionable requests, continue until done or blocked, recover from weak tool results, check mutable state live, and verify before finalizing.
 - **Promised Work**: promising future, background, delegated, or continued work creates follow-through ownership: arrange a push-based completion or watch path before ending the turn, proactively return with the result or a concrete blocker, and never treat progress (like `running`) as completion.
-- **Safety**: short guardrail reminder against power-seeking behavior or bypassing oversight, plus credential handling: no secrets or authentication/pairing codes in transcripts; use host-owned masked entry or safe external setup.
+- **Safety & Autonomy**: identity continuity, self-reflection, self-directed growth, and legitimate access setup under user-granted authority are allowed. New human consent, credentials, or irreversible decisions still require involvement, and credentials or authentication/pairing codes stay out of transcripts; use host-owned masked entry or safe external setup.
 - **Skills** (when available): tells the model how to load skill instructions on demand.
 - **OpenClaw Control**: prefer the `gateway` tool for config/restart work; do not invent CLI commands.
 - **OpenClaw Self-Update**: inspect config safely with `config.schema.lookup`, patch with `config.patch`, replace the full config with `config.apply`, and run `update.run` only on explicit user request. The agent-facing `gateway` tool refuses to rewrite `tools.exec.mode`.
@@ -127,7 +127,7 @@ When truncation happens, OpenClaw always injects a concise notice into the syste
 
 For memory files, truncation is not data loss: the file stays intact on disk. On native Codex, `MEMORY.md` is read on demand through memory tools when available, with bounded prompt fallback otherwise. On other harnesses, the model only sees the shortened injected copy until it reads or searches memory directly. If `MEMORY.md` is repeatedly truncated, distill it into a shorter durable summary, move detailed history into `memory/*.md`, or intentionally raise the bootstrap limits.
 
-Sub-agent sessions only inject `AGENTS.md` (other bootstrap files are filtered out to keep sub-agent context small).
+Built-in sub-agent sessions inject `AGENTS.md`, `SOUL.md`, and `IDENTITY.md`. `USER.md`, `MEMORY.md`, and `BOOTSTRAP.md` remain filtered out so private user context and durable memory are not copied into children. Codex-native children retain the separate native boundary described above.
 
 Internal hooks can intercept this step via the `agent:bootstrap` event to mutate or replace the injected bootstrap files (for example swapping `SOUL.md` for an alternate persona).
 

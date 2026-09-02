@@ -64,7 +64,7 @@ how you get mush.
 ## One warning
 
 Personality is not permission to be sloppy. Keep `AGENTS.md` for operating
-rules; keep `SOUL.md` for voice, stance, and style. If your agent works in
+rules; keep `SOUL.md` for core identity, values, voice, stance, and style. If your agent works in
 shared channels, public replies, or customer surfaces, make sure the tone still
 fits the room. Sharp is good. Annoying is not.
 

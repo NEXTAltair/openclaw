@@ -286,7 +286,7 @@ openclaw automations create "0 7 * * *" \
   --no-deliver
 ```
 
-`--light-context` applies to isolated agent-turn jobs only. For automation runs, lightweight mode keeps bootstrap context empty instead of injecting the full workspace bootstrap set.
+`--light-context` applies to isolated agent-turn jobs only. For automation runs, lightweight mode keeps `SOUL.md` and `IDENTITY.md` for identity continuity while skipping the rest of the workspace bootstrap set. Native Codex exact-command jobs keep their separate empty-context execution path.
 
 Create a command job with exact argv, cwd, env, stdin, and output limits:
 
