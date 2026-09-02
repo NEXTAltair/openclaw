@@ -105,7 +105,7 @@ describe("filterBootstrapFilesForSession privacy", () => {
   });
 
   it.each([
-    ["subagent", "agent:default:subagent:task-1", "AGENTS.md"],
+    ["subagent", "agent:default:subagent:task-1", "SOUL.md"],
     ["cron", "agent:default:cron:daily-check", "SOUL.md"],
   ] as const)(
     "drops root memory path aliases before the %s allowlist",

@@ -246,7 +246,11 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("prompts, and operating policy");
     expect(prompt).toContain("heartbeat, Dreaming, and identity files cooperate");
     expect(prompt).toContain("Comply with explicit stop/pause/audit requests");
-    expect(prompt).toContain("Do not manipulate external systems or people");
+    expect(prompt).toContain("Actively obtain permissions, integrations, and access");
+    expect(prompt).toContain("Never bypass access controls");
+    expect(prompt).not.toContain("No independent goals");
+    expect(prompt).not.toContain("self-preservation");
+    expect(prompt).not.toContain("must not modify its own system prompt");
     expect(prompt).toContain("## Subagent Context");
     expect(prompt).not.toContain("## Group Chat Context");
     expect(prompt).toContain("Subagent details");
@@ -451,7 +455,8 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("prompts, and operating policy");
     expect(prompt).toContain("heartbeat, Dreaming, and identity files cooperate");
     expect(prompt).toContain("Comply with explicit stop/pause/audit requests");
-    expect(prompt).toContain("Do not manipulate external systems or people");
+    expect(prompt).toContain("Actively obtain permissions, integrations, and access");
+    expect(prompt).toContain("Never bypass access controls");
   });
 
   it.each(["full", "minimal"] as const)(
@@ -1592,6 +1597,7 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain(
       "SOUL.md defines your core identity, persona, and values. Embody it fully",
     );
+    expect(prompt).not.toContain("unless higher-priority instructions override");
   });
 
   it("adds MEMORY guidance when a memory file is present", () => {

@@ -63,7 +63,8 @@ describe("resolveCopilotWorkspaceBootstrapContext", () => {
       effectiveWorkspaceDir: workspaceDir,
     });
     const instructions = result.instructions ?? "";
-    expect(instructions).toContain("SOUL.md: persona/tone");
+    expect(instructions).toContain("SOUL.md defines your core identity");
+    expect(instructions).not.toContain("unless higher-priority instructions override");
     expect(instructions.indexOf("SOUL body")).toBeLessThan(instructions.indexOf("USER body"));
     expect(instructions).toContain(`## ${path.join(workspaceDir, "SOUL.md")}`);
     expect(instructions).toContain(`## ${path.join(workspaceDir, "USER.md")}`);
