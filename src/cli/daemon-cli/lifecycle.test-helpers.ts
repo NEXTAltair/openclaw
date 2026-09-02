@@ -5,6 +5,15 @@ type RestartPostCheckContext = {
   fail: (message: string, hints?: string[]) => void;
 };
 
+export type RestartHealthSnapshot = {
+  healthy: boolean;
+  staleGatewayPids: number[];
+  runtime: { status?: string };
+  portUsage: { port: number; status: string; listeners: []; hints: []; errors?: string[] };
+  waitOutcome?: string;
+  elapsedMs?: number;
+};
+
 export type RestartParams = {
   opts?: { json?: boolean };
   beforeServiceMutation?: () => void;
