@@ -1478,6 +1478,15 @@ describe("buildAgentSystemPrompt", () => {
     expect(withTool).toContain("- skill_workshop: Author reusable skills");
     expect(withTool).toContain("## Skill Workshop");
     expect(withTool).toContain("Durable reusable skill/playbook/workflow work");
+    expect(withTool).not.toContain("never write proposal/skill files directly.");
+    expect(withTool).toContain(
+      "Explicitly requested development in an operator-owned source repository outside Workshop",
+    );
+    expect(withTool).toContain("does not require Workshop import or a shadow skill");
+    expect(withTool).toContain("A repository path or issue link alone is not authorization");
+    expect(withTool).toContain(
+      "Workshop-owned skills and managed personal-library skills still use their owning authoring tools",
+    );
     expect(withTool).toContain("Used skill proved wrong or incomplete");
     expect(withTool).toContain(
       "Where supported, autonomous mode may disable repair, stage a proposal, or apply it",

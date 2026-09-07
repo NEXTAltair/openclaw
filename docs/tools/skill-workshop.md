@@ -28,6 +28,15 @@ also supports [personal library skills](/tools/skills#personal-skills-on-a-share
 when the Gateway supplies an authorized library target; those operations publish
 managed revisions rather than Workshop proposals.
 
+An explicit request to develop a skill or plugin in an operator-owned source
+repository outside Workshop uses normal authorized file/code tools, including
+edits to `SKILL.md` and supporting files. It does not require importing that
+repository into Workshop or creating a shadow skill. A repository path or issue
+link alone is not authorization. Workshop-owned skills and managed personal
+library skills still use their owning authoring tools; unsolicited improvements
+remain subject to autonomous policy. This distinction does not grant publication,
+deployment, or additional tool permissions, and does not bypass approvals.
+
 Workshop storage is installation-managed and separate from the session
 workspace and managed skill library. `OPENCLAW_STATE_DIR` selects the state
 directory; `~/.openclaw` is the default.
