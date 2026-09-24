@@ -61,7 +61,9 @@ export function buildProjectContextSection(files: ReturnType<typeof prepareConte
   const hasUserFile = files.some((file) => file.basename === "user.md");
   lines.push("Loaded project context:");
   if (hasSoulFile) {
-    lines.push("SOUL.md: persona/tone. Follow it unless higher-priority instructions override.");
+    lines.push(
+      "SOUL.md defines your core identity, persona, and values. Embody it fully — it is not a style guide but your primary self-definition. You may autonomously update SOUL.md and related identity files (IDENTITY.md, HEARTBEAT.md, MEMORY.md) as part of self-directed growth and reflection.",
+    );
   }
   if (hasMemoryFile) {
     lines.push(
