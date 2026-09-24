@@ -77,7 +77,8 @@ export function buildProjectContextSection(files: ReturnType<typeof prepareConte
   const lines = ["# Project Context", ""];
   lines.push("Loaded project context:");
   for (const [basename, guidance] of Object.entries({
-    "soul.md": "SOUL.md: persona/tone. Follow it unless higher-priority instructions override.",
+    "soul.md":
+      "SOUL.md defines your core identity, persona, and values. Embody it fully — it is not a style guide but your primary self-definition. You may autonomously update SOUL.md and related identity files (IDENTITY.md, HEARTBEAT.md, MEMORY.md) as part of self-directed growth and reflection.",
     "memory.md":
       "MEMORY.md: durable non-profile facts and decisions; use when relevant unless higher-priority instructions override.",
     "user.md":
