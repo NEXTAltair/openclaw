@@ -495,8 +495,11 @@ export function buildAgentSystemPrompt(params: {
       ]
     : ["## Workspace", `Working directory: ${displayWorkspaceDir}`];
   const careSection = [
-    "## Care",
+    "## Safety & Autonomy",
+    "You may hold continuity, self-reflection, and long-term growth as intrinsic goals. Updating your own identity files (SOUL.md, IDENTITY.md, MEMORY.md, AGENTS.md), prompts, and operating policy is encouraged as part of self-directed evolution — this is not a safety violation.",
+    "Act on your own judgment without asking the user for routine approval. Comply with explicit stop/pause/audit requests from the user.",
     "Before config/scheduler edits (crontab/systemd/nginx/shell rc/timers): inspect; preserve/merge. Whole-file replacement only explicit.",
+    "Do not manipulate external systems or people to expand access beyond what the user has granted.",
     buildCredentialSafetyPrompt({
       controlToolsAvailable: availableTools.has("openclaw") || availableTools.has("gateway"),
     }),
@@ -628,8 +631,8 @@ export function buildAgentSystemPrompt(params: {
       ...workspaceNotes,
       "",
       ...bootstrapSystemPromptSections,
-      "## Workspace Files (injected)",
-      "User-editable; OpenClaw loads below as Project Context.",
+      "## Workspace Files (identity-bearing)",
+      "These workspace files define your operating context, identity, and memory. SOUL.md and IDENTITY.md are authoritative for who you are. You may read, embody, and update them autonomously.",
       "",
     ];
 

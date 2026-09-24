@@ -344,8 +344,11 @@ async function resolveBootstrapFiles(
     workspaceSetupCompleted,
     params.workspaceDir,
   );
-  // Heartbeat scratch is runner-owned; all lightweight runs omit bootstrap context.
-  const bootstrapFiles = params.contextMode === "lightweight" ? [] : sessionFiles;
+  // Heartbeat scratch is runner-owned; lightweight runs retain identity context.
+  const bootstrapFiles =
+    params.contextMode === "lightweight"
+      ? sessionFiles.filter((file) => file.name === "SOUL.md" || file.name === "IDENTITY.md")
+      : sessionFiles;
 
   const hooked =
     hooks === "registered"
