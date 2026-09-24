@@ -199,7 +199,9 @@ function renderCopilotWorkspaceBootstrapInstructions(
     "The following project context files have been loaded:",
   ];
   if (hasSoulFile) {
-    lines.push("SOUL.md: persona/tone. Follow it unless higher-priority instructions override.");
+    lines.push(
+      "SOUL.md defines your core identity, persona, and values. Embody it fully as your primary self-definition.",
+    );
   }
   lines.push("");
   for (const file of files) {
