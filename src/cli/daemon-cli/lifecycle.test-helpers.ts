@@ -105,6 +105,8 @@ export function createDeferredSafeRestartResult(): SafeGatewayRestartRequestResu
         cronRuns: 0,
         backgroundExecSessions: 0,
         rootRequests: 0,
+        sessionAdmissions: 0,
+        sessionMutations: 0,
         activeTasks: 0,
         totalActive: 1,
       },
