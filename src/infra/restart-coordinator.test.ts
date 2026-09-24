@@ -35,6 +35,8 @@ const idleInspect = {
   getPendingReplies: () => 0,
   getEmbeddedRuns: () => 0,
   getCronRuns: () => 0,
+  getSessionAdmissions: () => 0,
+  getSessionMutations: () => 0,
   getAgentRuns: () => 0,
   getAcpRuns: () => 0,
   getMediaRuns: () => 0,
@@ -60,6 +62,8 @@ describe("safe gateway restart coordinator", () => {
         cronRuns: 0,
         backgroundExecSessions: 0,
         rootRequests: 0,
+        sessionAdmissions: 0,
+        sessionMutations: 0,
         agentRuns: 0,
         acpRuns: 0,
         mediaRuns: 0,
@@ -146,6 +150,38 @@ describe("safe gateway restart coordinator", () => {
       request?.release();
       handoff?.release();
     }
+  });
+
+  it("defers restart while a foreground session turn is admitted", () => {
+    scheduleGatewayRestart.mockReturnValueOnce({
+      ok: true,
+      pid: 123,
+      signal: "SIGUSR2",
+      delayMs: 0,
+      mode: "emit",
+      coalesced: false,
+      cooldownMsApplied: 0,
+    });
+    const result = scheduleSafeGatewayRestart({
+      reason: "test.foreground-turn",
+      inspect: {
+        ...idleInspect,
+        getSessionAdmissions: () => 1,
+      },
+    });
+
+    expect(result.status).toBe("deferred");
+    expect(result.preflight.counts).toMatchObject({
+      sessionAdmissions: 1,
+      totalActive: 1,
+    });
+    expect(result.preflight.blockers).toEqual([
+      {
+        kind: "session-admission",
+        count: 1,
+        message: "1 admitted session turn(s)",
+      },
+    ]);
   });
 
   it.each([

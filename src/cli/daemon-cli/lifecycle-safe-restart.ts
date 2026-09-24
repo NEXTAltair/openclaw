@@ -1,5 +1,6 @@
 import { GATEWAY_SERVER_CAPS } from "../../../packages/gateway-protocol/src/index.js";
 import { theme } from "../../../packages/terminal-core/src/theme.js";
+import { assertGatewayServiceFallbackAllowed } from "../../daemon/service-update-authority.js";
 import { refreshLegacySystemdServiceMetadata } from "../../daemon/systemd.js";
 import { callGatewayCli } from "../../gateway/call.js";
 import { formatErrorMessage } from "../../infra/errors.js";
@@ -14,6 +15,23 @@ import type { DaemonLifecycleOptions } from "./types.js";
 
 const SAFE_RESTART_METADATA_REFRESH_TIMEOUT_MS = 5_000;
 
+export function shouldUseImplicitSafeRestart(
+  opts: DaemonLifecycleOptions,
+  env: NodeJS.ProcessEnv,
+): boolean {
+  if (
+    opts.safe === true ||
+    opts.force === true ||
+    opts.wait !== undefined ||
+    opts.skipDeferral === true ||
+    env.OPENCLAW_SERVICE_KIND !== "gateway"
+  ) {
+    return false;
+  }
+  const servicePid = Number.parseInt(env.OPENCLAW_GATEWAY_SERVICE_PID ?? "", 10);
+  return Number.isSafeInteger(servicePid) && servicePid > 0;
+}
+
 export function resolveGatewayRestartIntentOptions(
   opts: DaemonLifecycleOptions,
 ): GatewayRestartIntent | undefined {
@@ -26,12 +44,17 @@ export function resolveGatewayRestartIntentOptions(
   return opts.wait === undefined ? undefined : { waitMs: parseDurationMs(opts.wait) };
 }
 
+type SafeGatewayRestartTransportOptions = {
+  useStoredDeviceAuth?: boolean;
+};
+
 /** Request an OpenClaw-aware restart through the running Gateway. */
 type SafeRestartTarget = { pid: number; ownerId: string; port: number };
 
 export async function runSafeGatewayRestart(
   opts: DaemonLifecycleOptions,
   target?: SafeRestartTarget,
+  transport: SafeGatewayRestartTransportOptions = {},
 ): Promise<boolean> {
   if (opts.force) {
     throw new Error(
@@ -86,6 +109,13 @@ export async function runSafeGatewayRestart(
         }
       : {}),
     timeoutMs: 10_000,
+    ...(transport.useStoredDeviceAuth === true
+      ? {
+          useStoredDeviceAuth: true,
+          requiredStoredDeviceAuthScopes: ["operator.admin"],
+          ignoreEnvUrlOverride: true,
+        }
+      : {}),
   });
   if (target && result.restart.pid !== target.pid) {
     throw new Error("invalid safe restart acknowledgement");
@@ -123,4 +153,21 @@ export async function runSafeGatewayRestart(
     }
   }
   return true;
+}
+
+/** Handle explicit safe restarts and implicit agent-originated restarts. */
+export async function requestSafeGatewayRestartIfNeeded(
+  opts: DaemonLifecycleOptions,
+  env: NodeJS.ProcessEnv,
+): Promise<boolean | undefined> {
+  const implicitSafeRestart = shouldUseImplicitSafeRestart(opts, env);
+  if (!opts.safe && !implicitSafeRestart) {
+    return undefined;
+  }
+  assertGatewayServiceFallbackAllowed("safe RPC restart");
+  return await runSafeGatewayRestart(
+    { ...opts, safe: true },
+    undefined,
+    { useStoredDeviceAuth: implicitSafeRestart },
+  );
 }

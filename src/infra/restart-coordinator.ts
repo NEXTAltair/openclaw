@@ -7,6 +7,20 @@ import { scheduleGatewayRestart, type ScheduledRestart } from "./restart.js";
 
 // Safe restart coordination checks active local work before scheduling SIGUSR2
 // restarts, while still allowing explicit deferral bypasses for operators.
+type SafeGatewayRestartCounts = {
+  queueSize: number;
+  pendingReplies: number;
+  embeddedRuns: number;
+  cronRuns: number;
+  backgroundExecSessions: number;
+  rootRequests: number;
+  sessionAdmissions: number;
+  sessionMutations: number;
+  agentRuns: number;
+  acpRuns: number;
+  mediaRuns: number;
+  totalActive: number;
+};
 type SafeGatewayRestartBlocker = Omit<GatewayActiveWorkBlocker, "kind"> & {
   kind:
     | "queue"
@@ -15,6 +29,8 @@ type SafeGatewayRestartBlocker = Omit<GatewayActiveWorkBlocker, "kind"> & {
     | "cron-run"
     | "background-exec"
     | "root-request"
+    | "session-admission"
+    | "session-mutation"
     | "agent-run"
     | "acp-run"
     | "media-generation";
@@ -28,6 +44,8 @@ type SafeRestartInspectors = Pick<
   | "getCronRuns"
   | "getBackgroundExecSessions"
   | "getRootRequests"
+  | "getSessionAdmissions"
+  | "getSessionMutations"
   | "getAgentRuns"
   | "getAcpRuns"
   | "getMediaRuns"
@@ -43,8 +61,6 @@ export type SafeGatewayRestartRequestResult = {
 export function createSafeGatewayRestartPreflight(inspectors: Partial<SafeRestartInspectors> = {}) {
   const snapshot = createGatewayActiveWorkSnapshot({
     ...inspectors,
-    getSessionAdmissions: () => 0,
-    getSessionMutations: () => 0,
     getChatRuns: () => 0,
     getQueuedTurns: () => 0,
     getTerminalPersistence: () => 0,
@@ -57,6 +73,8 @@ export function createSafeGatewayRestartPreflight(inspectors: Partial<SafeRestar
     cronRuns: snapshot.counts.cronRuns,
     backgroundExecSessions: snapshot.counts.backgroundExecSessions,
     rootRequests: snapshot.counts.rootRequests,
+    sessionAdmissions: snapshot.counts.sessionAdmissions,
+    sessionMutations: snapshot.counts.sessionMutations,
     agentRuns: snapshot.counts.agentRuns,
     acpRuns: snapshot.counts.acpRuns,
     mediaRuns: snapshot.counts.mediaRuns,

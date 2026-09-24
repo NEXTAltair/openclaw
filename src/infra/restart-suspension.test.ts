@@ -8,6 +8,10 @@ import {
   tryBeginGatewayPreparedRestartRootWorkAdmission,
 } from "../process/gateway-work-admission.js";
 import {
+  beginSessionWorkAdmission,
+  getActiveSessionWorkAdmissionCount,
+} from "../sessions/session-lifecycle-admission.js";
+import {
   getGatewaySuspendStatus,
   prepareGatewaySuspend,
   resetGatewaySuspendCoordinatorForLifecycleRestart,
@@ -179,6 +183,47 @@ describe("scheduled restart during gateway suspension", () => {
     await vi.advanceTimersByTimeAsync(0);
     expectSignals(2);
     expect(preRestartCheck).toHaveBeenCalledTimes(4);
+  });
+
+  it("keeps foreground turn admission open while restart is deferred and accepts a turn after restart", async () => {
+    setPreRestartDeferralCheck(() => getActiveSessionWorkAdmissionCount());
+
+    const firstTurn = await beginSessionWorkAdmission({
+      scope: "restart-deferral",
+      identities: ["agent:main:dashboard:first"],
+      assertAllowed: () => {},
+    });
+    scheduleGatewayRestart({ delayMs: 0, reason: "agent-requested-restart", skipCooldown: true });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expectSignals(0);
+    expect(isGatewayWorkAdmissionClosed()).toBe(false);
+
+    const queuedUserTurn = await beginSessionWorkAdmission({
+      scope: "restart-deferral",
+      identities: ["agent:main:dashboard:next"],
+      assertAllowed: () => {},
+    });
+    expect(getActiveSessionWorkAdmissionCount()).toBe(2);
+
+    firstTurn.release();
+    await vi.advanceTimersByTimeAsync(500);
+    expectSignals(0);
+
+    queuedUserTurn.release();
+    await vi.advanceTimersByTimeAsync(500);
+    expectSignals(1);
+    expect(isGatewayWorkAdmissionClosed()).toBe(true);
+
+    resetGatewayRestartStateForInProcessRestart();
+    resetGatewayWorkAdmission();
+    const postRestartTurn = await beginSessionWorkAdmission({
+      scope: "restart-deferral",
+      identities: ["agent:main:dashboard:post-restart"],
+      assertAllowed: () => {},
+    });
+    expect(getActiveSessionWorkAdmissionCount()).toBe(1);
+    postRestartTurn.release();
   });
 
   it.each([false, true])("cancels pending restart on reset (suspended: %s)", async (suspended) => {
