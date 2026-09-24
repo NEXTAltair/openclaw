@@ -48,6 +48,10 @@ import {
 import { getPluginMetadataSnapshotCache } from "../plugins/plugin-cache.js";
 import { getTotalQueueSize } from "../process/command-queue.js";
 import { getActiveGatewayRootWorkCount } from "../process/gateway-work-admission.js";
+import {
+  getActiveSessionLifecycleMutationCount,
+  getActiveSessionWorkAdmissionCount,
+} from "../sessions/session-lifecycle-admission.js";
 import { createLazyPromise } from "../shared/lazy-runtime.js";
 import { withArtifactPreservingStateReads } from "../state/openclaw-state-db-readonly.js";
 import { resolveOpenClawStateSqlitePath } from "../state/openclaw-state-db.paths.js";
@@ -359,6 +363,8 @@ export async function prepareGatewayServerBootstrap(input: {
       getActiveCronJobCount() +
       getActiveBackgroundExecSessionCount() +
       getActiveGatewayRootWorkCount({ excludeCurrent: true }) +
+      getActiveSessionWorkAdmissionCount() +
+      getActiveSessionLifecycleMutationCount() +
       activeTaskCount.get(),
   );
   const seededControlUiAllowedOrigins = controlUiSeed.seededAllowedOrigins

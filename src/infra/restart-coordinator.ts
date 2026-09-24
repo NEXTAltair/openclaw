@@ -14,6 +14,8 @@ type SafeGatewayRestartCounts = {
   cronRuns: number;
   backgroundExecSessions: number;
   rootRequests: number;
+  sessionAdmissions: number;
+  sessionMutations: number;
   activeTasks: number;
   totalActive: number;
 };
@@ -25,6 +27,8 @@ type SafeGatewayRestartBlocker = Omit<GatewayActiveWorkBlocker, "kind"> & {
     | "cron-run"
     | "background-exec"
     | "root-request"
+    | "session-admission"
+    | "session-mutation"
     | "task";
 };
 
@@ -36,6 +40,8 @@ type SafeRestartInspectors = Pick<
   | "getCronRuns"
   | "getBackgroundExecSessions"
   | "getRootRequests"
+  | "getSessionAdmissions"
+  | "getSessionMutations"
   | "getActiveTasks"
   | "getTaskBlockers"
 >;
@@ -59,8 +65,6 @@ export function createSafeGatewayRestartPreflight(
 ): SafeGatewayRestartPreflight {
   const snapshot = createGatewayActiveWorkSnapshot({
     ...inspectors,
-    getSessionAdmissions: () => 0,
-    getSessionMutations: () => 0,
     getChatRuns: () => 0,
     getQueuedTurns: () => 0,
     getTerminalPersistence: () => 0,
@@ -73,6 +77,8 @@ export function createSafeGatewayRestartPreflight(
     cronRuns: snapshot.counts.cronRuns,
     backgroundExecSessions: snapshot.counts.backgroundExecSessions,
     rootRequests: snapshot.counts.rootRequests,
+    sessionAdmissions: snapshot.counts.sessionAdmissions,
+    sessionMutations: snapshot.counts.sessionMutations,
     activeTasks: snapshot.counts.activeTasks,
     totalActive:
       snapshot.counts.queueSize +
@@ -81,6 +87,8 @@ export function createSafeGatewayRestartPreflight(
       snapshot.counts.cronRuns +
       snapshot.counts.backgroundExecSessions +
       snapshot.counts.rootRequests +
+      snapshot.counts.sessionAdmissions +
+      snapshot.counts.sessionMutations +
       snapshot.counts.activeTasks,
   };
   const blockers = snapshot.blockers as SafeGatewayRestartBlocker[];

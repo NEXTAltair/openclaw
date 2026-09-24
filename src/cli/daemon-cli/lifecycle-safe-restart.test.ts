@@ -1,6 +1,9 @@
 // Safe gateway restart tests cover operator-facing acknowledgement copy.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { shouldUseImplicitSafeRestart } from "./lifecycle-safe-restart.js";
+import {
+  requestSafeGatewayRestartIfNeeded,
+  shouldUseImplicitSafeRestart,
+} from "./lifecycle-safe-restart.js";
 
 const callGatewayCli = vi.hoisted(() => vi.fn());
 const refreshLegacySystemdServiceMetadata = vi.hoisted(() =>
@@ -136,5 +139,24 @@ describe("runSafeGatewayRestart", () => {
     expect(refreshLegacySystemdServiceMetadata).not.toHaveBeenCalled();
     expect(callGatewayCli).toHaveBeenCalledOnce();
     expect(runtimeError).toHaveBeenCalledWith(expect.stringContaining("external supervisor"));
+  });
+
+  it("uses local admin device auth without resolving SecretRefs", async () => {
+    callGatewayCli.mockResolvedValueOnce({
+      status: "deferred",
+      preflight: { blockers: [], summary: "restart deferred" },
+      restart: { pid: 4200 },
+    });
+
+    await requestSafeGatewayRestartIfNeeded({}, gatewayEnv);
+
+    expect(callGatewayCli).toHaveBeenCalledWith({
+      method: "gateway.restart.request",
+      params: { reason: "gateway.restart.safe" },
+      timeoutMs: 10_000,
+      useStoredDeviceAuth: true,
+      requiredStoredDeviceAuthScopes: ["operator.admin"],
+      ignoreEnvUrlOverride: true,
+    });
   });
 });

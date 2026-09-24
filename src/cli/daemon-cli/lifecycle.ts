@@ -51,8 +51,8 @@ import {
 } from "./lifecycle-core.js";
 import {
   runSafeGatewayRestart,
+  requestSafeGatewayRestartIfNeeded,
   resolveGatewayRestartIntentOptions,
-  shouldUseImplicitSafeRestart,
 } from "./lifecycle-safe-restart.js";
 import { resolveVerifiedGatewayListenerPids, signalGatewayRestart } from "./lifecycle-unmanaged.js";
 import { createDaemonActionContext, createNullWriter } from "./response.js";
@@ -364,9 +364,9 @@ export async function runDaemonRestart(opts: DaemonLifecycleOptions = {}): Promi
   if (opts.skipDeferral && !opts.safe) {
     throw new Error("--skip-deferral requires --safe");
   }
-  if (opts.safe || shouldUseImplicitSafeRestart(opts, process.env)) {
-    assertGatewayServiceFallbackAllowed("safe RPC restart");
-    return await runSafeGatewayRestart({ ...opts, safe: true });
+  const safeRestart = await requestSafeGatewayRestartIfNeeded(opts, process.env);
+  if (safeRestart !== undefined) {
+    return safeRestart;
   }
   if (isGatewayExternallySupervised()) {
     assertGatewayServiceFallbackAllowed("external-supervisor restart");
