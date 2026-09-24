@@ -106,6 +106,8 @@ export function createDeferredSafeRestartResult(): SafeGatewayRestartRequestResu
         agentRuns: 0,
         acpRuns: 0,
         mediaRuns: 0,
+        sessionAdmissions: 0,
+        sessionMutations: 0,
         totalActive: 1,
       },
       blockers: [{ kind: "queue", count: 1, message: "1 queued or active operation(s)" }],
