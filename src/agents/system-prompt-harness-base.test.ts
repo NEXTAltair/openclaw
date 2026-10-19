@@ -28,7 +28,7 @@ describe("buildAgentHarnessBasePrompt", () => {
       "## Execution Bias",
       "## Promised Work",
       "## Tool Call Style",
-      "## Care",
+      "## Safety & Autonomy",
       "## OpenClaw Control",
       "## Skill Workshop",
     ]) {
