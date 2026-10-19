@@ -126,6 +126,30 @@ async function expectSessionNamespace(
 }
 
 describe("plugin registration runtime admission", () => {
+  it("binds speech prompt preparation to the selected registry and plugin lifetime", async () => {
+    const runtime = createPluginRuntime();
+    runtime.tts.prepareSpeechPromptContext = async () => ({
+      version: 1,
+      ready: false,
+      auto: "off",
+      allowText: true,
+      maxLength: 400,
+      model: getPluginRuntimeGatewayRequestScope()?.pluginRegistry?.coreGatewayMethodNames[0],
+    });
+    const { builder, record, api } = registered("speech-prompt", {}, runtime);
+    const owner = expectDefined(getPluginInstance(record), "speech prompt instance");
+    builder.registry.plugins.push(record);
+    builder.registry.coreGatewayMethodNames.push("selected-registry");
+    const prepare = api.runtime.tts.prepareSpeechPromptContext;
+    try {
+      await expect(prepare({ cfg: {} })).resolves.toMatchObject({ model: "selected-registry" });
+      revokePluginRecord(builder.registry, record);
+      expect(() => prepare({ cfg: {} })).toThrow("runtime is no longer active");
+    } finally {
+      await owner.dispose();
+    }
+  });
+
   function fixture(origin: "config" | "bundled" = "config") {
     const list = vi.fn(async () => ({ nodes: [] }));
     const runtime = createPluginRuntime();

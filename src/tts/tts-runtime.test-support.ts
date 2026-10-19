@@ -116,6 +116,7 @@ export const {
   isTtsProviderConfiguredAsync,
   listSpeechVoices,
   prepareTtsRequest,
+  prepareSpeechPromptContext,
   resolveTtsConfig,
   resolveTtsPrefsPath,
   setTtsMachinePrefsPathResolver,

@@ -95,7 +95,7 @@ type TtsProviderReadyResolution =
       personaBinding?: "missing";
     };
 
-async function resolveReadySpeechProvider(params: {
+export async function resolveReadySpeechProvider(params: {
   provider: TtsProvider;
   cfg: OpenClawConfig;
   config: ResolvedTtsConfig;

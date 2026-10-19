@@ -78,6 +78,9 @@ function createRuntimeTts(): PluginRuntime["tts"] {
   const bindTtsRequestRuntime = createLazyRuntimeMethodBinder(loadTtsRequestRuntime);
   return {
     buildSystemPromptHintAsync: bindTtsRuntime((runtime) => runtime.buildTtsSystemPromptHintAsync),
+    prepareSpeechPromptContext: bindTtsRequestRuntime(
+      (runtime) => runtime.prepareSpeechPromptContext,
+    ),
     prepareTtsRequest: bindTtsRequestRuntime((runtime) => runtime.prepareTtsRequest),
     textToSpeech: bindTtsRuntime((runtime) => runtime.textToSpeech),
     textToSpeechStream: bindTtsRuntime((runtime) => runtime.textToSpeechStream),

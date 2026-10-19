@@ -55,6 +55,7 @@ export {
   resolveExplicitTtsOverrides,
   resolveExplicitTtsOverridesAsync,
 } from "./tts-request.js";
+export { prepareSpeechPromptContext, type SpeechPromptContext } from "./tts-prompt-context.js";
 export { streamSpeech, textToSpeechStream } from "./tts-streaming.js";
 export { synthesizeSpeech } from "./tts-synthesis.js";
 export { textToSpeechTelephony } from "./tts-telephony.js";

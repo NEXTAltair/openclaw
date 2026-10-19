@@ -41,6 +41,16 @@ JavaScript-only host export; its declarations are excluded from the package.
     Text-to-speech synthesis.
 
     ```typescript
+    // Read-only primary speech selection for provider-aware prompt guidance.
+    const speech = await api.runtime.tts.prepareSpeechPromptContext({
+      cfg: api.config,
+      agentId: ctx.agentId,
+      channelId: ctx.channel,
+      accountId: ctx.accountId,
+    });
+    // speech: { version: 1, ready, provider?, model?, persona?, auto, allowText, maxLength }
+    // No synthesis, fallback attempt, credentials, voice files, or text rewriting.
+
     // Standard TTS
     const clip = await api.runtime.tts.textToSpeech({
       text: "Hello from OpenClaw",
@@ -63,6 +73,8 @@ JavaScript-only host export; its declarations are excluded from the package.
     Uses core `tts` configuration and provider selection. Returns PCM audio buffer + sample rate. `textToSpeechStream` is also available for streaming synthesis.
 
     `buildSystemPromptHintAsync(config, agentId?, options?)` prepares the TTS prompt hint through the state owner and returns `Promise<string | undefined>`. It is optional on older host interfaces; require an upgrade when absent. See the [async prompt preparation recipe](/plugins/sdk-migration/async-transcript-and-tts#tts-prompts).
+
+    `prepareSpeechPromptContext` uses the same primary-provider, persona binding, and model resolution as synthesis, including user preferences and agent/channel/account layers. It accepts an optional `sessionAuto` from the current session entry. `ready: false` covers auto-off, disallowed text overrides, and an unavailable primary binding. The result is a per-call snapshot, not authorization to synthesize or a guarantee of later provider health; inbound/tagged delivery rules still apply. Plugins should leave guidance unchanged on older hosts where this capability is absent. The method does not return provider configuration or secrets.
 
   </Accordion>
   <Accordion title="api.runtime.mediaUnderstanding">

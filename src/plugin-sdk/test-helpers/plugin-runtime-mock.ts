@@ -299,6 +299,7 @@ export function createPluginRuntimeMock(overrides: PluginRuntimeMockOverrides = 
       resizeToJpeg: vi.fn<PluginRuntime["media"]["resizeToJpeg"]>(),
     },
     tts: {
+      prepareSpeechPromptContext: vi.fn<PluginRuntime["tts"]["prepareSpeechPromptContext"]>(),
       prepareTtsRequest: vi.fn<PluginRuntime["tts"]["prepareTtsRequest"]>(),
       textToSpeech: vi.fn<PluginRuntime["tts"]["textToSpeech"]>(),
       textToSpeechStream: vi.fn<PluginRuntime["tts"]["textToSpeechStream"]>(),
