@@ -65,6 +65,45 @@ import {
 } from "./thread-requests.js";
 import { buildTurnStartParams } from "./turn-params.js";
 
+it.each(["start", "resume"] as const)(
+  "carries shared execution and follow-through policy in serialized thread/%s requests",
+  async (method) => {
+    const params = createAttemptParams({ provider: "openai" });
+    const options = {
+      appServer: createAppServerOptions() as never,
+      dynamicTools: [],
+      refreshableInstructions: "Current workspace instructions.",
+    };
+    const request =
+      method === "start"
+        ? await buildThreadStartParams(params, { ...options, cwd: "/repo" })
+        : await buildThreadResumeParams(params, { ...options, threadId: "thread-1" });
+    const requestJson = JSON.stringify({ method: `thread/${method}`, params: request });
+    const wireRequest = JSON.parse(requestJson) as {
+      method: string;
+      params: {
+        developerInstructions: string;
+        baseInstructions?: string;
+      };
+    };
+
+    expect(wireRequest.method).toBe(`thread/${method}`);
+    expect(wireRequest.params.baseInstructions).toBeUndefined();
+    const instructions = wireRequest.params.developerInstructions;
+    expect(instructions).toContain("## Execution Bias");
+    expect(instructions).toContain(
+      "A concrete, reversible repair or internal handoff needed for the user's existing goal is part of that goal.",
+    );
+    expect(instructions).toContain("Do not stop at an acknowledgment or apology.");
+    expect(instructions).toContain(
+      "Before ending a turn, arrange an available completion or watch path",
+    );
+    expect(instructions).toContain("Current workspace instructions.");
+    expect(instructions.match(/## Execution Bias/g)).toHaveLength(1);
+    expect(instructions.match(/## Promised Work/g)).toHaveLength(1);
+  },
+);
+
 it("uses direct OpenClaw functions and hosted web search for subscription sharing", async () => {
   const params = createAttemptParams({ provider: "openai", authProfileId: "openai:sharing" });
   const profile = params.authProfileStore!.profiles["openai:sharing"]!;

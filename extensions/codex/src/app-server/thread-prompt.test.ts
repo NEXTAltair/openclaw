@@ -53,6 +53,22 @@ function buildInstructions(overrides: Partial<EmbeddedRunAttemptParams> = {}): s
   });
 }
 
+describe("buildDeveloperInstructions shared execution policy", () => {
+  it("keeps follow-through in minimal prompts without expanding execution guidance", () => {
+    const instructions = buildInstructions({ promptMode: "minimal" });
+
+    expect(instructions).not.toContain("## Execution Bias");
+    expect(instructions).toContain("## Promised Work");
+  });
+
+  it("omits both sections when prompt mode is none", () => {
+    const instructions = buildInstructions({ promptMode: "none" });
+
+    expect(instructions).not.toContain("## Execution Bias");
+    expect(instructions).not.toContain("## Promised Work");
+  });
+});
+
 describe("buildDeveloperInstructions deferred tool discovery", () => {
   it.each([false, true])("advertises JavaScript discovery only when enabled (%s)", (enabled) => {
     const instructions = buildDeveloperInstructions(createParams(), {

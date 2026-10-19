@@ -51,6 +51,16 @@ function expectPromptCase(
 }
 
 describe("buildAgentSystemPrompt", () => {
+  it("keeps reversible repairs and internal handoffs inside the existing goal", () => {
+    const prompt = renderPrompt();
+
+    expect(prompt).toContain(
+      "A concrete, reversible repair or internal handoff needed for the user's existing goal is part of that goal.",
+    );
+    expect(prompt).toContain("do not stop at diagnosis");
+    expect(prompt).toContain("## Promised Work");
+  });
+
   it("resolves helper session keys to scoped prompt surfaces", () => {
     expect(resolveAgentPromptSurfaceForSessionKey("agent:main:subagent:child")).toBe("subagent");
     expect(resolveAgentPromptSurfaceForSessionKey("agent:codex:acp:child")).toBe("acp_backend");

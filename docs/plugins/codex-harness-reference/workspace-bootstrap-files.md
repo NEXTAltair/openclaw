@@ -12,6 +12,13 @@ How `AGENTS.md`, persona, skills, and memory files reach a native Codex turn. Pa
 
 ## Workspace bootstrap files
 
+Codex thread developer instructions include OpenClaw's shared **Execution Bias**
+and **Promised Work** sections. They use the same renderers as the embedded
+harness, so shared execution and follow-through policy changes reach both routes.
+Minimal prompts retain follow-through guidance without the full execution section;
+`none` prompts omit both. These additions do not replace Codex's native base or
+collaboration-mode instructions.
+
 The full generic developer policy, including a `before_prompt_build.systemPrompt`
 replacement, remains native session configuration for compaction and native-child
 inheritance. Ordinary persistent cold or changed-configuration resumes require an

@@ -438,6 +438,12 @@ fact. Supply these facts for each turn. Harnesses with a separate static prompt
 can use the same interface's `buildUiPresentationPrompt` for stable UI guidance,
 leaving delivery and target instructions in late context.
 
+Harnesses with a separate static prompt can also use
+`buildExecutionBiasPromptSection` and `buildPromisedWorkPromptSection` from the
+same SDK entrypoint to share OpenClaw's execution and follow-through policy.
+Both return prompt lines. Full prompts include both sections, minimal prompts
+include only promised-work guidance, and `none` prompts include neither.
+
 For auxiliary session control calls, `resolveSessionModelRef` from
 `openclaw/plugin-sdk/model-session-runtime` resolves the current model selection.
 `prepareAgentRuntimeAuth` from `openclaw/plugin-sdk/agent-harness-runtime` selects

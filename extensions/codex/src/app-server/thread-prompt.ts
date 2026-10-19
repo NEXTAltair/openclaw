@@ -1,6 +1,8 @@
 import {
   buildCredentialSafetyPrompt,
   buildDelegationGuidanceSection,
+  buildExecutionBiasPromptSection,
+  buildPromisedWorkPromptSection,
   buildUiPresentationPrompt,
   buildSkillWorkshopPromptSection,
   resolveMainSessionDelegationMode,
@@ -122,6 +124,10 @@ export function buildDeveloperInstructions(
       : undefined;
   const sections = [
     "You are a personal agent running inside OpenClaw. OpenClaw has dynamic tools for OpenClaw-owned messaging, cron, sessions, media, gateway, and nodes.",
+    params.promptMode !== "minimal" && params.promptMode !== "none"
+      ? buildExecutionBiasPromptSection().join("\n")
+      : undefined,
+    params.promptMode !== "none" ? buildPromisedWorkPromptSection().join("\n") : undefined,
     deferredToolNames.size > 0
       ? `Deferred searchable OpenClaw dynamic tools available: ${[...deferredToolNames]
           .toSorted((left, right) => left.localeCompare(right))

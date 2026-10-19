@@ -290,7 +290,8 @@ export function readPluginSdkSurfaceBudgets(env: NodeJS.ProcessEnv = process.env
       // ControlUiChannelSettingsView for plugin-owned channel Settings presentations.
       // +1: the shared message-tool source-reply finality resolver.
       // +1: awaited web_search policy preparation for harnesses; the sync resolver stays.
-      3810,
+      // +2: shared execution and promised-work renderers for embedded/native harness parity.
+      3812,
       env,
     ),
     publicFunctionExports: readPluginSdkSurfaceBudgetEnv(
@@ -333,7 +334,8 @@ export function readPluginSdkSurfaceBudgets(env: NodeJS.ProcessEnv = process.env
       // +1: maintainer-requested context-engine transcript watermark reader.
       // +1: the shared message-tool source-reply finality resolver, so harnesses apply a run's default.
       // +1: the same awaited web_search policy preparation.
-      2208,
+      // +2: shared execution and promised-work renderers for embedded/native harness parity.
+      2210,
       env,
     ),
     publicDeprecatedExports: readPluginSdkSurfaceBudgetEnv(

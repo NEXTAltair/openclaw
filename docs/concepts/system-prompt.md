@@ -60,6 +60,13 @@ The prompt is compact, with fixed sections:
 - **Runtime**: host, OS, node, model, repo root (when detected), and session identity (one line). Git co-author trailers appear here only when a shared session has someone to credit. Active exec sessions travel in the Runtime Context carrier. Reasoning effort travels through provider controls; its Ultra orchestration guidance stays below the cache boundary. Use `/status` to inspect the selected effort.
 - **Reasoning**: current visibility level plus the `/reasoning` toggle hint.
 
+The default **Execution Bias** and **Promised Work** sections have shared renderers
+used by both the embedded harness and Codex's thread developer instructions.
+Reversible repairs and internal handoffs needed for an existing goal stay inside
+that goal; diagnosis alone is not completion. Minimal prompts omit **Execution
+Bias** but retain **Promised Work**; `none` prompts omit both. Codex keeps its native
+base instructions and collaboration-mode guidance alongside these OpenClaw sections.
+
 Large stable content (**Project Context**, workspace instructions, fixed execution and provider policy, and common **Runtime Context** instructions) stays above the internal prompt cache boundary. Current tool capabilities and catalogs (**Tooling**, **Skills**, **Memory Recall**, **Model Aliases**, tool-specific runtime guidance, **Care**, **Documentation**, and **Sandbox**) are rendered below it, alongside channel and per-turn guidance. Refreshing a catalog or changing granted tools therefore leaves the cached workspace prefix byte-identical while preserving the complete current instructions.
 
 Other volatile sections include **UI Presentation**, Control UI embed guidance, **Messaging**, **Collapsible Details**, **Voice**, **Group Chat Context**, **Reactions**, **Runtime**, **Project Memory** facts, channel-specific ACP hints, delegation/orchestration mode, and the current elevated level. Date, time zone, exec, subagent, and media facts use the later Runtime Context carrier to preserve the conversation-history prefix too. The boundary is internal transport metadata: every section remains system-prompt guidance for CLI backends. Tool descriptions should avoid embedding current channel names when the accepted schema already carries that runtime detail.
