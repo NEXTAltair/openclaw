@@ -121,7 +121,13 @@ describe("buildAgentSystemPrompt", () => {
         extraSystemPrompt: "Subagent details",
         ttsHint: "Voice (TTS) is enabled.",
       },
-      ["## Skills", "## Messaging", "## Care", "## Subagent Context", "Subagent details"],
+      [
+        "## Skills",
+        "## Messaging",
+        "## Safety & Autonomy",
+        "## Subagent Context",
+        "Subagent details",
+      ],
       [
         "## Authorized Senders",
         "## Documentation",
@@ -549,7 +555,7 @@ describe("buildAgentSystemPrompt", () => {
     });
     expect(prompt).toContain("# Project Context");
     expect(prompt).toContain("## AGENTS.md\nAlpha");
-    expect(prompt).toContain("SOUL.md: persona/tone.");
+    expect(prompt).toContain("SOUL.md defines your core identity, persona, and values.");
     expect(prompt).toContain("MEMORY.md: durable");
     expect(prompt).toContain("Durable facts");
     expect(prompt).not.toContain("Blank path");
@@ -1005,10 +1011,13 @@ describe("system prompt memory and runtime cache boundary", () => {
       },
       { proactiveSubagentOrchestration: true },
       [["## Execution Bias"], ["## Proactive Sub-Agent Orchestration"]],
-      [["## Care", "## Delegation", "Execute work directly by default."], ["Ultra active"]],
+      [
+        ["## Safety & Autonomy", "## Delegation", "Execute work directly by default."],
+        ["Ultra active"],
+      ],
       [
         [
-          "## Care",
+          "## Safety & Autonomy",
           "## Proactive Sub-Agent Orchestration",
           "Ultra active",
           "Execute work directly by default.",
