@@ -45,7 +45,7 @@ export async function prepareSpeechPromptContext(params: {
         return base;
       }
       const candidate = setup.providers[0];
-      const ready = resolveReadySpeechProvider({
+      const ready = await resolveReadySpeechProvider({
         ...setup,
         provider: candidate.provider,
         voiceModel: candidate.voiceModel,
