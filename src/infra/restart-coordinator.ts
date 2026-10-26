@@ -7,20 +7,6 @@ import { scheduleGatewayRestart, type ScheduledRestart } from "./restart.js";
 
 // Safe restart coordination checks active local work before scheduling SIGUSR2
 // restarts, while still allowing explicit deferral bypasses for operators.
-type SafeGatewayRestartCounts = {
-  queueSize: number;
-  pendingReplies: number;
-  embeddedRuns: number;
-  cronRuns: number;
-  backgroundExecSessions: number;
-  rootRequests: number;
-  sessionAdmissions: number;
-  sessionMutations: number;
-  agentRuns: number;
-  acpRuns: number;
-  mediaRuns: number;
-  totalActive: number;
-};
 type SafeGatewayRestartBlocker = Omit<GatewayActiveWorkBlocker, "kind"> & {
   kind:
     | "queue"
