@@ -364,7 +364,7 @@ describe("runCodexAppServerSideQuestion", () => {
         openclaw_temporal_context: {
           kind: "application",
           value:
-            "## Temporal Context\nCurrent date: 2026-09-01\nTime zone: America/Los_Angeles\nFor the exact current time, use `session_status`.",
+            "## Temporal Context\nCurrent date: 2026-09-01\nTime zone: America/Los_Angeles\nCurrent time: Tue 2026-09-01 17:30:00 PDT (observation clock)\nCurrent user message: unavailable (not a human turn or missing/invalid timestamp)\nPrevious user message: unavailable in available history\nFor the exact current time, use `session_status`.",
         },
       },
       model: "codex-side-execution-model",

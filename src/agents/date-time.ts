@@ -3,6 +3,9 @@
  */
 import { execFileSync } from "node:child_process";
 import { resolveDateTimestampMs } from "@openclaw/normalization-core/number-coercion";
+import { formatZonedTimestamp } from "../infra/format-time/format-datetime.js";
+import { formatDurationCompact } from "../infra/format-time/format-duration.js";
+import { normalizeInputProvenance } from "../sessions/input-provenance.js";
 
 type ResolvedTimeFormat = "12" | "24";
 
@@ -68,18 +71,141 @@ export function formatDateStamp(nowMs: number, timeZone: string): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** Build current turn context using the configured timezone or the canonical host fallback. */
-export function buildTemporalContextText(params: {
+export type TemporalContextSnapshotParams = {
   configuredTimezone?: string;
   sessionStatusAvailable: boolean;
-}): string {
+  /** The observation clock used for this prompt build. Defaults to Date.now(). */
+  observationTimestampMs?: number;
+  /** Trusted admission/event time for the current real-user message. */
+  currentUserTimestampMs?: number;
+  /** Trusted event time for the previous real-user message. */
+  previousUserTimestampMs?: number;
+  /** Host-owned message metadata; never parse timestamps from message text. */
+  conversation?: { currentMessage?: unknown; history: readonly unknown[] };
+};
+
+/** Read a trusted timestamp field without inspecting message content. */
+export function resolveTrustedMessageTimestampMs(message: unknown): number | undefined {
+  if (!message || typeof message !== "object") {
+    return undefined;
+  }
+  const timestamp = (message as { timestamp?: unknown }).timestamp;
+  // Agent transcript timestamps are milliseconds, unlike raw connector timestamps.
+  return typeof timestamp === "number" && Number.isFinite(new Date(timestamp).getTime())
+    ? timestamp
+    : undefined;
+}
+
+/** True only for user-role messages eligible to establish human conversation time. */
+export function isRealHumanUserMessage(message: unknown): boolean {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+  const record = message as Record<string, unknown>;
+  if (
+    record.role !== "user" ||
+    record.display === false ||
+    record.excludeFromContext === true ||
+    Boolean(record.operatorMessage)
+  ) {
+    return false;
+  }
+  const provenance = normalizeInputProvenance(record.provenance);
+  return record.provenance === undefined || provenance?.kind === "external_user";
+}
+
+/** Return the latest eligible user event strictly before the current event. */
+export function resolvePreviousRealUserTimestampMs(
+  messages: readonly unknown[],
+  currentUserTimestampMs?: number,
+): number | undefined {
+  const current =
+    typeof currentUserTimestampMs === "number" && Number.isSafeInteger(currentUserTimestampMs)
+      ? currentUserTimestampMs
+      : undefined;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+    if (!isRealHumanUserMessage(message)) {
+      continue;
+    }
+    const timestampMs = resolveTrustedMessageTimestampMs(message);
+    // A missing or reversed latest event must not silently select an older user.
+    return timestampMs !== undefined && (current === undefined || timestampMs < current)
+      ? timestampMs
+      : undefined;
+  }
+  return undefined;
+}
+
+function formatTrustedTemporalTimestamp(timestampMs: number, timeZone: string): string | undefined {
+  return formatZonedTimestamp(new Date(timestampMs), {
+    timeZone,
+    displaySeconds: true,
+    displayWeekday: true,
+  });
+}
+
+/** Build a bounded current-turn temporal snapshot from trusted clocks and event metadata. */
+export function buildTemporalContextText(params: TemporalContextSnapshotParams): string {
   const userTimezone = resolveUserTimezone(params.configuredTimezone);
-  return [
+  const observationTimestampMs =
+    typeof params.observationTimestampMs === "number" &&
+    Number.isSafeInteger(params.observationTimestampMs)
+      ? params.observationTimestampMs
+      : Date.now();
+  const currentTimestamp = params.conversation
+    ? isRealHumanUserMessage(params.conversation.currentMessage)
+      ? resolveTrustedMessageTimestampMs(params.conversation.currentMessage)
+      : undefined
+    : params.currentUserTimestampMs;
+  const currentUserTimestampMs =
+    typeof currentTimestamp === "number" &&
+    Number.isSafeInteger(currentTimestamp) &&
+    currentTimestamp <= observationTimestampMs
+      ? currentTimestamp
+      : undefined;
+  const previousTimestamp = params.conversation
+    ? currentUserTimestampMs === undefined
+      ? undefined
+      : resolvePreviousRealUserTimestampMs(params.conversation.history, currentUserTimestampMs)
+    : params.previousUserTimestampMs;
+  const previousUserTimestampMs =
+    typeof previousTimestamp === "number" &&
+    Number.isSafeInteger(previousTimestamp) &&
+    previousTimestamp <= observationTimestampMs &&
+    currentUserTimestampMs !== undefined &&
+    previousTimestamp < currentUserTimestampMs
+      ? previousTimestamp
+      : undefined;
+  const observationTime = formatTrustedTemporalTimestamp(observationTimestampMs, userTimezone);
+  const currentUserTime =
+    currentUserTimestampMs !== undefined
+      ? formatTrustedTemporalTimestamp(currentUserTimestampMs, userTimezone)
+      : undefined;
+  const previousUserTime =
+    previousUserTimestampMs !== undefined
+      ? formatTrustedTemporalTimestamp(previousUserTimestampMs, userTimezone)
+      : undefined;
+  const lines = [
     "## Temporal Context",
-    `Current date: ${formatDateStamp(Date.now(), userTimezone)}`,
+    `Current date: ${formatDateStamp(observationTimestampMs, userTimezone)}`,
     `Time zone: ${userTimezone}`,
+    ...(observationTime ? [`Current time: ${observationTime} (observation clock)`] : []),
+    `Current user message: ${currentUserTime ? `${currentUserTime} (event time)` : "unavailable (not a human turn or missing/invalid timestamp)"}`,
+    ...(currentUserTimestampMs !== undefined
+      ? [
+          `Message age at observation: ${formatDurationCompact(observationTimestampMs - currentUserTimestampMs, { spaced: true }) ?? "0s"}`,
+        ]
+      : []),
+    `Previous user message: ${previousUserTime ? `${previousUserTime} (event time; available history)` : "unavailable in available history"}`,
+    ...(currentUserTimestampMs !== undefined && previousUserTimestampMs !== undefined
+      ? [
+          `Elapsed since previous user message: ${formatDurationCompact(currentUserTimestampMs - previousUserTimestampMs, { spaced: true })}`,
+        ]
+      : []),
     ...(params.sessionStatusAvailable ? ["For the exact current time, use `session_status`."] : []),
-  ].join("\n");
+  ];
+  return lines.join("\n");
 }
 
 /** Normalize Date, second, millisecond, or parseable string timestamps. */

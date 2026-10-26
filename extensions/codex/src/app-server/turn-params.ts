@@ -91,6 +91,7 @@ export async function buildTurnStartParams(
     messageToolAvailable?: boolean;
     requireExplicitMessageTarget?: boolean;
     historyProvenancePrefix?: string;
+    conversationHistory?: readonly unknown[];
   },
 ): Promise<CodexTurnStartParams> {
   const modelSelection = options.preserveNativeTurnSettings
@@ -120,6 +121,7 @@ export async function buildTurnStartParams(
   const additionalContext: NonNullable<CodexTurnStartParams["additionalContext"]> = {
     ...buildCodexTemporalAdditionalContext(params, {
       sessionStatusAvailable: options.sessionStatusAvailable === true,
+      conversationHistory: options.conversationHistory,
     }),
     // Codex emits changed context only. Unknown must replace a disconnected Mac's hint.
     openclaw_active_computer: {
@@ -215,8 +217,8 @@ export async function buildTurnStartParams(
 }
 
 export function buildCodexTemporalAdditionalContext(
-  params: Pick<EmbeddedRunAttemptParams, "config">,
-  options: { sessionStatusAvailable: boolean },
+  params: Pick<EmbeddedRunAttemptParams, "config" | "trigger" | "userTurnTranscriptRecorder">,
+  options: { sessionStatusAvailable: boolean; conversationHistory?: readonly unknown[] },
 ): NonNullable<CodexTurnStartParams["additionalContext"]> {
   return {
     openclaw_temporal_context: {
@@ -224,6 +226,13 @@ export function buildCodexTemporalAdditionalContext(
       value: buildTemporalContextText({
         configuredTimezone: params.config?.agents?.defaults?.userTimezone,
         sessionStatusAvailable: options.sessionStatusAvailable,
+        conversation: {
+          currentMessage:
+            params.trigger === undefined || params.trigger === "user"
+              ? params.userTurnTranscriptRecorder?.message
+              : undefined,
+          history: options.conversationHistory ?? [],
+        },
       }),
     },
   };

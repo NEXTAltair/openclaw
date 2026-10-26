@@ -17,6 +17,11 @@ import type { getGlobalHookRunner } from "../../../plugins/hook-runner-global.js
 import { buildInterSessionPromptContext } from "../../../sessions/input-provenance.js";
 import { joinPresentTextSegments } from "../../../shared/text/join-segments.js";
 import { resolveAdmittedRunActiveAssertion } from "../../admitted-run-context.js";
+import {
+  isRealHumanUserMessage,
+  resolvePreviousRealUserTimestampMs,
+  resolveTrustedMessageTimestampMs,
+} from "../../date-time.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../../defaults.js";
 import {
   buildAgentInternalEventContext,
@@ -423,6 +428,7 @@ type PromptContextAttempt = Pick<
   | "sessionTarget"
   | "sourceReplyDeliveryMode"
   | "suppressNextUserMessagePersistence"
+  | "trigger"
   | "operation"
 > & { runId?: string };
 
@@ -475,6 +481,15 @@ export async function prepareEmbeddedAttemptPromptContext(input: {
       input.toolResultPromptProjectionState,
     );
   }
+  const currentUserTimestampMs =
+    (attempt.trigger === undefined || attempt.trigger === "user") &&
+    isRealHumanUserMessage(input.preparedUserTurnMessage)
+      ? resolveTrustedMessageTimestampMs(input.preparedUserTurnMessage)
+      : undefined;
+  const previousUserTimestampMs =
+    currentUserTimestampMs === undefined
+      ? undefined
+      : resolvePreviousRealUserTimestampMs(sessionMessages, currentUserTimestampMs);
   const prePromptMessageCount = sessionMessages.length;
   const contextTokenBudget = attempt.contextTokenBudget ?? DEFAULT_CONTEXT_TOKENS;
   const promptToolResultMaxChars = resolveLiveToolResultMaxChars({
@@ -560,6 +575,8 @@ export async function prepareEmbeddedAttemptPromptContext(input: {
           sessionTarget: attempt.sessionTarget,
           runId: attempt.runId,
           agentId: input.sessionAgentId,
+          currentUserTimestampMs,
+          previousUserTimestampMs,
           includeEmptySnapshots: input.appendOnlyRuntimeContext === true,
         });
   const contextFragments = [...fragments, ...runtimeFacts];

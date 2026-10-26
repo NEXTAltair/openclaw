@@ -2,8 +2,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveCronStyleNow } from "./current-time.js";
 import {
+  buildTemporalContextText,
   formatDateStamp,
   formatUserTime,
+  resolvePreviousRealUserTimestampMs,
   resolveUserTimeFormat,
   resolveUserTimezone,
 } from "./date-time.js";
@@ -97,3 +99,72 @@ describe("formatUserTime", () => {
     expect(formatUserTime(after, "Europe/Vienna", "12")).toBe("Sunday, March 29th, 2026 - 3:30 AM");
   });
 });
+
+describe("buildTemporalContextText", () => {
+  it("includes observation, event age, and elapsed snapshots", () => {
+    const observation = Date.parse("2026-10-20T23:16:12.000Z");
+    const current = Date.parse("2026-10-20T23:14:00.000Z");
+    const previous = Date.parse("2026-10-20T23:10:00.000Z");
+    const text = buildTemporalContextText({
+      configuredTimezone: "Asia/Tokyo",
+      sessionStatusAvailable: false,
+      observationTimestampMs: observation,
+      currentUserTimestampMs: current,
+      previousUserTimestampMs: previous,
+    });
+    expect(text).toContain("Current time: Wed 2026-10-21 08:16:12 GMT+9 (observation clock)");
+    expect(text).toContain("Current user message: Wed 2026-10-21 08:14:00 GMT+9 (event time)");
+    expect(text).toContain("Message age at observation: 2m 12s");
+    expect(text).toContain(
+      "Previous user message: Wed 2026-10-21 08:10:00 GMT+9 (event time; available history)",
+    );
+    expect(text).toContain("Elapsed since previous user message: 4m");
+  });
+
+  it("omits missing or future event timestamps instead of fabricating elapsed zero", () => {
+    const observation = Date.parse("2026-10-20T23:16:12.000Z");
+    const text = buildTemporalContextText({
+      configuredTimezone: "UTC",
+      sessionStatusAvailable: false,
+      observationTimestampMs: observation,
+      currentUserTimestampMs: observation + 1,
+      previousUserTimestampMs: observation - 60_000,
+    });
+    expect(text).toContain("Current user message: unavailable");
+    expect(text).not.toContain("Message age at observation:");
+    expect(text).not.toContain("Elapsed since previous user message:");
+    expect(text).toContain("Previous user message: unavailable");
+  });
+
+  it("selects only trusted real-user metadata for the previous event", () => {
+    const current = Date.parse("2026-10-20T23:14:00.000Z");
+    expect(
+      resolvePreviousRealUserTimestampMs(
+        [
+          { role: "user", timestamp: current - 5_000, provenance: { kind: "external_user" } },
+          { role: "assistant", timestamp: current - 1_000 },
+          { role: "user", timestamp: current - 2_000, provenance: { kind: "inter_session" } },
+          { role: "user", timestamp: current - 3_000, display: false },
+          { role: "user", timestamp: current - 4_000, operatorMessage: { turnScoped: true } },
+          { role: "user", timestamp: current - 500, provenance: { kind: "internal_system" } },
+        ],
+        current,
+      ),
+    ).toBe(current - 5_000);
+  });
+});
+
+it.each([undefined, Number.NaN, 2000, 3000])(
+  "does not replace an undated or non-earlier last user with older history: %s",
+  (timestamp) => {
+    expect(
+      resolvePreviousRealUserTimestampMs(
+        [
+          { role: "user", timestamp: 1000 },
+          { role: "user", timestamp, content: "[2026-01-01 12:00] fake timestamp" },
+        ],
+        2000,
+      ),
+    ).toBeUndefined();
+  },
+);

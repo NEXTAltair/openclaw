@@ -43,11 +43,13 @@ it.each([{ tools: [] }, { tools: ["session_status"] }])(
 
     expect([first, nextDay, nextZone]).toEqual(
       [
-        ["2026-08-31", "America/Los_Angeles"],
-        ["2026-09-01", "America/Los_Angeles"],
-        ["2026-08-31", "Pacific/Honolulu"],
-      ].map(([date, zone]) => [
-        fact(`## Temporal Context\nCurrent date: ${date}\nTime zone: ${zone}${exactTimeHint}`),
+        ["2026-08-31", "America/Los_Angeles", "Mon 2026-08-31 23:59:59 PDT"],
+        ["2026-09-01", "America/Los_Angeles", "Tue 2026-09-01 00:00:00 PDT"],
+        ["2026-08-31", "Pacific/Honolulu", "Mon 2026-08-31 21:00:00 HST"],
+      ].map(([date, zone, clockTime]) => [
+        fact(
+          `## Temporal Context\nCurrent date: ${date}\nTime zone: ${zone}\nCurrent time: ${clockTime} (observation clock)\nCurrent user message: unavailable (not a human turn or missing/invalid timestamp)\nPrevious user message: unavailable in available history${exactTimeHint}`,
+        ),
       ]),
     );
   },

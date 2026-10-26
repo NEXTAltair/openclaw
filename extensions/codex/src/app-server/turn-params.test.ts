@@ -1,4 +1,5 @@
 import { resolveThinkingDefault } from "openclaw/plugin-sdk/agent-runtime";
+import { loadUserTurnTranscriptRecorderFactoryForTest } from "openclaw/plugin-sdk/plugin-test-runtime";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   createAppServerOptions,
@@ -134,7 +135,7 @@ it("uses the configured user timezone on every turn without changing cron input"
     openclaw_active_computer: activeComputer,
     openclaw_source_delivery: sourceDelivery,
     openclaw_temporal_context: application(
-      "## Temporal Context\nCurrent date: 2026-09-01\nTime zone: America/Los_Angeles\nFor the exact current time, use `session_status`.",
+      "## Temporal Context\nCurrent date: 2026-09-01\nTime zone: America/Los_Angeles\nCurrent time: Tue 2026-09-01 17:30:00 PDT (observation clock)\nCurrent user message: unavailable (not a human turn or missing/invalid timestamp)\nPrevious user message: unavailable in available history\nFor the exact current time, use `session_status`.",
     ),
   });
 
@@ -269,4 +270,39 @@ it("adds a permission notice without overwriting native supervised settings", as
     openclaw_temporal_context: application(expect.stringContaining("## Temporal Context")),
     openclaw_permission_change: application(notice),
   });
+});
+
+it("sends admitted event metadata and prior human elapsed time in native additional context", async () => {
+  vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-21T00:15:00Z"));
+  const createRecorder = await loadUserTurnTranscriptRecorderFactoryForTest();
+  const recorder = createRecorder({
+    input: {
+      text: "[1999-01-01] authored timestamp is not metadata",
+      timestamp: Date.parse("2026-10-21T00:14:00Z"),
+    },
+    target: () => {
+      throw new Error("read-only temporal fixture must not persist");
+    },
+  });
+  const params = paramsForTurn(
+    { agents: { defaults: { userTimezone: "Asia/Tokyo" } } },
+    { userTurnTranscriptRecorder: recorder },
+  );
+  const turn = await buildTurnStartParams(
+    params,
+    turnOptions({
+      conversationHistory: [
+        { role: "user", timestamp: Date.parse("2026-10-20T15:00:00Z") },
+        {
+          role: "user",
+          timestamp: Date.parse("2026-10-21T00:13:00Z"),
+          provenance: { kind: "internal_system" },
+        },
+      ],
+    }),
+  );
+  expect(temporalValue(turn)).toContain("Current user message: Wed 2026-10-21 09:14:00 GMT+9");
+  expect(temporalValue(turn)).toContain("Elapsed since previous user message: 9h 14m");
+  expect(temporalValue(turn)).not.toContain("1999");
+  expect(temporalValue(turn)).toContain("Message age at observation: 1m");
 });

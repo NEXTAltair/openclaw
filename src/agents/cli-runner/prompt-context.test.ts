@@ -16,7 +16,9 @@ it.each([false, true])(
       backend: { command: "fixture-cli", systemPromptArg: "--system-prompt" },
       systemPrompt: "Stable instructions.",
       prompt: "What is today's date?",
-      configuredTimezone: "Asia/Tokyo",
+      temporalContext: {
+        run: { config: { agents: { defaults: { userTimezone: "Asia/Tokyo" } } } },
+      },
       capabilityToolNames: new Set<string>(),
       context: [],
       prependContext: [],
@@ -138,3 +140,44 @@ it("lets a whole-system hook replacement remove ordinary Claude Runtime facts", 
   expect(turn.prompt).toBe("Hello");
   expect(turn.promptContext?.appendContext).not.toContain(runtimeFacts);
 });
+
+it.each([undefined, "user", "heartbeat"] as const)(
+  "appends only human event metadata without rewriting native prompts: %s",
+  async (trigger) => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-21T00:15:00Z"));
+    const turn = await prepareCliTurnPromptContext({
+      ...claudeTurn,
+      temporalContext: {
+        run: {
+          trigger,
+          config: { agents: { defaults: { userTimezone: "Asia/Tokyo" } } },
+          userTurnTranscriptRecorder: {
+            message: {
+              role: "user",
+              content: "[1999-01-01] authored timestamp is not metadata",
+              timestamp: Date.parse("2026-10-21T00:14:00Z"),
+            },
+          },
+        },
+        history: { previousUserTimestampMs: Date.parse("2026-10-20T15:00:00Z") },
+      },
+    });
+    expect(turn.prompt).toBe("Hello");
+    expect(turn.systemPrompt).toBe("Stable instructions.");
+    expect(turn.promptContext?.appendContext).not.toContain("1999");
+    if (trigger === "heartbeat") {
+      expect(turn.promptContext?.appendContext).toContain("Current user message: unavailable");
+      expect(turn.promptContext?.appendContext).not.toContain(
+        "Elapsed since previous user message:",
+      );
+      return;
+    }
+    expect(turn.promptContext?.appendContext).toContain(
+      "Current user message: Wed 2026-10-21 09:14:00 GMT+9",
+    );
+    expect(turn.promptContext?.appendContext).toContain(
+      "Elapsed since previous user message: 9h 14m",
+    );
+    expect(turn.promptContext?.appendContext).toContain("Message age at observation: 1m");
+  },
+);

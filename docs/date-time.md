@@ -46,13 +46,38 @@ host timezone. Absolute timestamps and elapsed-time suffixes are built in.
 
 ## Runtime context: date and time zone
 
-Each turn receives a **Temporal Context** section with the local calendar date and time zone,
-outside the system prompt and without a live clock:
+Each turn receives a **Temporal Context** snapshot with the local calendar date, time zone,
+and observation clock outside the stable system prompt. Human turns also include trusted
+message event times and a precomputed elapsed duration when available:
 
 ```
 Current date: 2026-01-05
 Time zone: America/Chicago
+Current time: Mon 2026-01-05 12:02:00 CST (observation clock)
+Current user message: Mon 2026-01-05 12:01:00 CST (event time)
+Message age at observation: 1m
+Previous user message: Mon 2026-01-05 03:00:00 CST (event time; available history)
+Elapsed since previous user message: 9h 1m
 ```
+
+The event time comes from admitted message metadata, never from authored date-like text.
+Message age includes transport and processing delay; it is not a measured queue duration.
+Assistant, tool, hidden operator context, and provenance-labelled internal or inter-session
+messages do not establish human conversation time. Missing or reversed timestamps are
+unavailable, not zero. The previous event is selected only from the admitted, available
+history; compacted-away events are not reconstructed from summary prose. Legacy user rows
+without provenance retain their ordinary user-role classification.
+
+Embedded, CLI, and native Codex turns share the temporal formatter. CLI history uses
+original event timestamps before preparing its persistence-time reseed projection. Native
+Codex carries the snapshot in current-turn `additionalContext`; previous prompt bytes stay
+unchanged. `buildTemporalContextText` from `openclaw/plugin-sdk/agent-harness-runtime` accepts
+optional host-owned `conversation: { currentMessage, history }` metadata for this purpose.
+
+This clock is a prompt-build snapshot, not a clock ticking inside the model. For decisions
+about earlier instructions, retain the original event date/time zone and distinguish a
+completed one-shot action from an ongoing condition or standing preference. Elapsed time
+alone does not cancel a continuing instruction.
 
 The zone is `agents.defaults.userTimezone` when configured, otherwise the host timezone.
 The section travels in the current-turn runtime context without rewriting earlier messages, so

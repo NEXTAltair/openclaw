@@ -167,6 +167,7 @@ async function prepare(native = createNativeThread(), usesSupervisionConnection 
         turnState.codexTurnPromptText = include ? "workspace reference\nuser input" : "user input";
       },
       context: {
+        historyState: { messages: [] },
         workspaceBootstrapContext: { promptContext: "workspace reference" },
         attemptTools: { tools: [], toolBridge: { availableTools: [], availableSpecs: [] } },
         runtime: {

@@ -25,6 +25,11 @@ import {
   resolveAdmittedRunActiveAssertion,
   type AdmittedRunContext,
 } from "../admitted-run-context.js";
+import {
+  isRealHumanUserMessage,
+  resolvePreviousRealUserTimestampMs,
+  resolveTrustedMessageTimestampMs,
+} from "../date-time.js";
 import { estimateToolResultTextChars } from "../embedded-agent-runner/tool-result-text-budget.js";
 import { MAX_AGENT_HOOK_HISTORY_MESSAGES } from "../harness/hook-history.js";
 import { isOpenClawRuntimeContextCustomMessage } from "../internal-runtime-context.js";
@@ -35,7 +40,7 @@ import {
   type SessionMessageEntry,
 } from "../sessions/session-manager.js";
 import { cliBackendLog } from "./log.js";
-import type { CliReusableSession } from "./types.js";
+import type { CliReusableSession, RunCliAgentParams } from "./types.js";
 
 const MAX_CLI_SESSION_HISTORY_BYTES = 5 * 1024 * 1024;
 const MAX_CLI_SESSION_HISTORY_MESSAGES = MAX_AGENT_HOOK_HISTORY_MESSAGES;
@@ -54,6 +59,11 @@ type CliSessionHistoryParams = {
   abortSignal?: AbortSignal;
   sessionManager?: SessionManager;
   sessionTarget?: SessionTranscriptRuntimeTarget;
+  /** Read only the current admitted message metadata, never recorder operations. */
+  userTurnTranscriptRecorder?: Pick<
+    NonNullable<RunCliAgentParams["userTurnTranscriptRecorder"]>,
+    "message"
+  >;
 };
 const CLI_SESSION_RESEED_CURRENCY_GUIDANCE =
   "[Recovered history may be stale; verify current and time-sensitive facts before acting.]";
@@ -658,6 +668,18 @@ export async function loadCliSessionPromptContext(
   const preservedTurnsContext = params.nativeSessionId
     ? renderClaudePreservedTurns(replies)
     : undefined;
+  const currentUserMessage = params.userTurnTranscriptRecorder?.message;
+  const currentUserTimestampMs = isRealHumanUserMessage(currentUserMessage)
+    ? resolveTrustedMessageTimestampMs(currentUserMessage)
+    : undefined;
+  // Conversation time uses original event metadata, not reseed persistence time.
+  const previousUserTimestampMs =
+    currentUserTimestampMs === undefined
+      ? undefined
+      : resolvePreviousRealUserTimestampMs(
+          buildSessionContext(entries).messages,
+          currentUserTimestampMs,
+        );
   // This freshly loaded branch is reseed-owned; use persistence rather than provider timestamps.
   for (const entry of entries) {
     if (entry.type === "message") {
@@ -675,7 +697,13 @@ export async function loadCliSessionPromptContext(
     !params.sessionManager &&
     (params.allowRawTranscriptReseed !== true || !params.rawTranscriptReseedReason)
   ) {
-    return { reseedMessages: [], durableContext, sessionGapContext, preservedTurnsContext };
+    return {
+      reseedMessages: [],
+      durableContext,
+      sessionGapContext,
+      preservedTurnsContext,
+      previousUserTimestampMs,
+    };
   }
   const history = historyMessages.filter(
     (message) =>
@@ -697,5 +725,11 @@ export async function loadCliSessionPromptContext(
           isError: message.role === "toolResult" ? message.isError : undefined,
         };
   });
-  return { reseedMessages, durableContext, sessionGapContext, preservedTurnsContext };
+  return {
+    reseedMessages,
+    durableContext,
+    sessionGapContext,
+    preservedTurnsContext,
+    previousUserTimestampMs,
+  };
 }

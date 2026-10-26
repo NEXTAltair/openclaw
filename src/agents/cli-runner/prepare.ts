@@ -1519,7 +1519,7 @@ async function prepareCliRunContextWithinReadFence(
         promptContext,
         promptForHooks,
       } = await prepareCliTurnPromptContext({
-        configuredTimezone: params.config?.agents?.defaults?.userTimezone,
+        temporalContext: { run: params, history: sessionPromptContext },
         prompt: preparedPrompt,
         systemPrompt,
         privateContext: executionTarget.kind === "plugin",

@@ -10,7 +10,11 @@ import type { CliBackendConfig, CliBackendPromptContext } from "../../plugins/cl
 import { annotateInterSessionPromptText } from "../../sessions/input-provenance.js";
 import { prepareTtsPreferences } from "../../tts/tts-preferences.js";
 import { buildCliSessionDriftNote } from "../cli-session.js";
-import { buildTemporalContextText } from "../date-time.js";
+import {
+  buildTemporalContextText,
+  isRealHumanUserMessage,
+  resolveTrustedMessageTimestampMs,
+} from "../date-time.js";
 import type { ResolvedPromptBuildHookResult } from "../embedded-agent-runner/run/attempt-prompt-helpers.js";
 import { composeSystemPromptWithHookContext } from "../embedded-agent-runner/run/attempt-thread-helpers.js";
 import {
@@ -36,10 +40,25 @@ async function buildCliTurnAppendContext(
     sessionTarget?: RunCliAgentParams["sessionTarget"];
     thinkLevel?: ThinkLevel;
     requesterProfileId?: string;
-    configuredTimezone?: string;
+    temporalContext?: {
+      run: Pick<RunCliAgentParams, "config" | "trigger"> & {
+        userTurnTranscriptRecorder?: Pick<
+          NonNullable<RunCliAgentParams["userTurnTranscriptRecorder"]>,
+          "message"
+        >;
+      };
+      history?: { previousUserTimestampMs?: number };
+    };
   },
 ): Promise<string> {
   const { resolveSystemPromptUsage } = await import("./helpers.js");
+  const temporal = params.temporalContext;
+  const currentUserMessage = temporal?.run.userTurnTranscriptRecorder?.message;
+  const currentUserTimestampMs =
+    (temporal?.run.trigger === undefined || temporal.run.trigger === "user") &&
+    isRealHumanUserMessage(currentUserMessage)
+      ? resolveTrustedMessageTimestampMs(currentUserMessage)
+      : undefined;
   const mediaTaskContext = await buildMediaTaskRuntimeContext({
     capabilityToolNames: params.capabilityToolNames,
     sessionKey: params.sessionKey,
@@ -67,8 +86,10 @@ async function buildCliTurnAppendContext(
       : undefined,
     labelRuntimeContextText(
       buildTemporalContextText({
-        configuredTimezone: params.configuredTimezone,
+        configuredTimezone: temporal?.run.config?.agents?.defaults?.userTimezone,
         sessionStatusAvailable: params.capabilityToolNames.has("session_status"),
+        currentUserTimestampMs,
+        previousUserTimestampMs: temporal?.history?.previousUserTimestampMs,
       }),
     ),
     mediaTaskMessage ? labelRuntimeContextText(mediaTaskMessage.content) : undefined,

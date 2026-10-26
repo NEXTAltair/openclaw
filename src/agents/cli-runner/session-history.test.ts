@@ -1031,3 +1031,21 @@ describe("buildCliSessionHistoryPrompt", () => {
     expect(prompt).not.toContain("[OpenClaw reseed history truncated; older turns dropped]");
   });
 });
+
+it("keeps original event time separate from CLI reseed persistence time", async () => {
+  const manager = SessionManager.inMemory();
+  await manager.appendMessageAsync({ role: "user", content: "prior human", timestamp: 1000 });
+  await manager.appendMessageAsync({
+    role: "user",
+    content: "internal wake",
+    timestamp: 2000,
+    provenance: { kind: "internal_system" },
+  });
+  const before = structuredClone(manager.getEntries());
+  const result = await loadCliSessionPromptContext({
+    sessionManager: manager,
+    userTurnTranscriptRecorder: { message: makeUserMessage("current", 3000) },
+  });
+  expect(result.previousUserTimestampMs).toBe(1000);
+  expect(manager.getEntries()).toEqual(before);
+});

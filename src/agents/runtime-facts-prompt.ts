@@ -17,6 +17,9 @@ export async function buildRuntimeFactsContext(
     executionHost?: boolean;
     sessionTarget?: AgentRunSessionTarget;
     runId?: string;
+    observationTimestampMs?: number;
+    currentUserTimestampMs?: number;
+    previousUserTimestampMs?: number;
   },
 ): Promise<RuntimeContextFragment[]> {
   const includeEmptySnapshots = params.includeEmptySnapshots === true;
@@ -45,6 +48,9 @@ export async function buildRuntimeFactsContext(
     text: buildTemporalContextText({
       configuredTimezone: params.cfg.agents?.defaults?.userTimezone,
       sessionStatusAvailable: params.capabilityToolNames.has("session_status"),
+      observationTimestampMs: params.observationTimestampMs,
+      currentUserTimestampMs: params.currentUserTimestampMs,
+      previousUserTimestampMs: params.previousUserTimestampMs,
     }),
   });
   return facts;
