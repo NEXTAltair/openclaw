@@ -549,20 +549,17 @@ it.each(["ok", "error"] as const)("force run preserves the every cadence after %
   expect(job.state.nextRunAtMs).toBe(expectedNextMs);
 });
 
-function parentPause(
-  reason: "archived" | "removed" = "archived",
-  parentSessionKey = "agent:main:dashboard:parent",
-) {
+function parentPause(parentSessionKey = "agent:main:dashboard:parent") {
   return {
     status: "skipped",
-    error: `paused: parent ${reason}`,
-    parentUnavailable: { reason, parentSessionKey },
+    error: "paused: parent removed",
+    parentUnavailable: { reason: "removed", parentSessionKey },
   } as const;
 }
 
 const pauseNotice = expect.objectContaining({
   kind: "auto-disabled",
-  text: "paused: parent archived",
+  text: "paused: parent removed",
 });
 
 it("pauses a parent-linked job once when its parent conversation is gone", () => {
@@ -591,7 +588,7 @@ it("sends the pause notice to the agent that owns the gone conversation", () => 
     agentId: undefined,
     sessionKey: parentSessionKey,
   });
-  apply(parentPause("archived", parentSessionKey));
+  apply(parentPause(parentSessionKey));
   expect(deferredNotifications).toEqual([
     expect.objectContaining({
       kind: "auto-disabled",
@@ -605,7 +602,7 @@ it("sends the pause notice for a one-shot job too", () => {
   const { job, apply, deferredNotifications } = outcomeFixture(startedAt, {
     schedule: { kind: "at", at: new Date(startedAt).toISOString() },
   });
-  apply(parentPause("removed"));
+  apply(parentPause());
   expect(job.enabled).toBe(false);
   expect(deferredNotifications.filter((notice) => notice.kind === "auto-disabled")).toHaveLength(1);
 });

@@ -25,7 +25,7 @@ export type ScheduledContextReport = {
   pauses: Array<{
     job: JobRef;
     parentSessionKey: string;
-    cause: "removed" | "archived" | "worktree-missing";
+    cause: "removed" | "worktree-missing";
     worktreePath?: string;
   }>;
   unbound: Array<{ job: JobRef; parentSessionKey: string; cause: "key-only" | "reset" }>;
@@ -144,7 +144,6 @@ function describeLostField(change: LostField): string {
 
 const PAUSE_CAUSE: Record<ScheduledContextReport["pauses"][number]["cause"], string> = {
   removed: "was removed",
-  archived: "is archived",
   "worktree-missing": "has a missing worktree",
 };
 

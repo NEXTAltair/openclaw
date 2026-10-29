@@ -1,19 +1,18 @@
-title: Cron pauses when its parent conversation is archived
+title: Cron keeps running when its parent conversation is archived
 
 scenario:
-  id: cron-archived-parent-pause
+  id: cron-archived-parent-continues
   surface: cron
   coverage:
     primary:
       - automation.isolated-cron-execution
     secondary:
       - automation.manual-cron-runs
-  objective: Verify an automation linked to the conversation that created it pauses with one notice, without running, once that conversation is archived.
+  objective: Verify an automation linked to the conversation that created it keeps running, enabled, after that conversation is archived.
   successCriteria:
     - A job created for an existing conversation runs normally while that conversation is current.
-    - After the conversation is archived, a forced run is skipped before any agent turn starts, and the model receives no request for it.
-    - The skipped run records a notice naming the archived conversation and the re-enable command.
-    - The job is disabled, so it does not keep running against the archived conversation.
+    - After the conversation is archived, a forced run still succeeds and reaches the model.
+    - The job stays enabled: archiving hides a conversation from lists and is not a request to stop its automations.
   docsRefs:
     - docs/automation/cron-jobs.md
   codeRefs:
@@ -28,7 +27,7 @@ scenario:
     channel: qa-channel
     retryCount: 0
     timeoutMs: 240000
-    summary: Create a conversation, create an isolated job bound to it, archive the conversation, and prove the next forced run pauses the job instead of running.
+    summary: Create a conversation, create an isolated job bound to it, archive the conversation, and prove the next forced run still runs with the job enabled.
     config:
       requiredProviderMode: mock-openai
       conversationId: qa-cron-archived-parent
@@ -40,7 +39,7 @@ flow:
       actions:
         - assert:
             expr: "env.providerMode === config.requiredProviderMode"
-            message: archived parent pause proof requires mock-openai
+            message: archived parent proof requires mock-openai
         - call: waitForGatewayHealthy
           args:
             - ref: env
@@ -117,7 +116,7 @@ flow:
             message:
               expr: "`run with a current parent did not succeed: ${JSON.stringify(firstRun)}`"
 
-    - name: archiving the parent pauses the job with one notice
+    - name: archiving the parent leaves the job running
       actions:
         - call: env.gateway.call
           saveAs: described
@@ -142,7 +141,7 @@ flow:
         - assert:
             expr: "jobPromptRequestsBefore >= 1"
             message: the run with a current parent never reached the model
-        - set: pausedRunStartedAt
+        - set: archivedRunStartedAt
           value:
             expr: "Date.now()"
         - call: env.gateway.call
@@ -153,34 +152,34 @@ flow:
               mode: force
             - timeoutMs: 30000
         - call: waitForCronRunCompletion
-          saveAs: pausedRun
+          saveAs: archivedRun
           args:
             - callGateway:
                 expr: "env.gateway.call.bind(env.gateway)"
               jobId:
                 ref: jobId
               afterTs:
-                ref: pausedRunStartedAt
+                ref: archivedRunStartedAt
         - assert:
-            expr: "pausedRun.status === 'skipped' && String(pausedRun.error ?? '').includes(parentSessionKey) && String(pausedRun.error ?? '').includes('it was archived') && String(pausedRun.error ?? '').includes(`openclaw automations enable ${jobId}`)"
+            expr: "archivedRun.status === 'ok'"
             message:
-              expr: "`archived parent did not pause the run: ${JSON.stringify(pausedRun)}`"
+              expr: "`run with an archived parent did not succeed: ${JSON.stringify(archivedRun)}`"
         - call: env.gateway.call
-          saveAs: pausedJob
+          saveAs: archivedJob
           args:
             - cron.get
             - id:
                 ref: jobId
             - timeoutMs: 30000
         - assert:
-            expr: "pausedJob.enabled === false"
+            expr: "archivedJob.enabled === true"
             message:
-              expr: "`paused job stayed enabled: ${JSON.stringify(pausedJob)}`"
-        # Final-effect check: the paused occurrence never reached the model.
+              expr: "`archiving the parent disabled the job: ${JSON.stringify(archivedJob)}`"
+        # Final-effect check: the occurrence after archiving reached the model.
         - set: jobPromptRequestsAfter
           value:
             expr: "[...(await fetchJson(`${env.mock.baseUrl}/debug/requests`))].filter((request) => String(request.prompt ?? '').includes('Cron parent QA check, reply with a short status line.')).length"
         - assert:
-            expr: "jobPromptRequestsAfter === jobPromptRequestsBefore"
+            expr: "jobPromptRequestsAfter > jobPromptRequestsBefore"
             message:
-              expr: "`paused run reached the model: ${jobPromptRequestsBefore} -> ${jobPromptRequestsAfter}`"
+              expr: "`run with an archived parent never reached the model: ${jobPromptRequestsBefore} -> ${jobPromptRequestsAfter}`"

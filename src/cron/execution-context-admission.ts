@@ -174,7 +174,6 @@ type ParentEntry = Pick<
   SessionEntry,
   | "sessionId"
   | "lifecycleRevision"
-  | "archivedAt"
   | "spawnedWorkspaceDir"
   | "spawnedCwd"
   | "worktree"
@@ -199,7 +198,6 @@ export function parentRowFactsFromEntry(
   return {
     sessionId: entry.sessionId,
     ...(entry.lifecycleRevision ? { lifecycleRevision: entry.lifecycleRevision } : {}),
-    archived: typeof entry.archivedAt === "number",
     // The same persisted-binding rule run preparation applies to the parent's row.
     ...(workspaceDir ? { workspaceDir } : {}),
     ...(entry.spawnedCwd ? { cwd: entry.spawnedCwd } : {}),
@@ -285,7 +283,7 @@ export async function admitScheduledOccurrence(
       const parentState = classifyScheduledParent(principal.parent, parentRow);
       const parentSessionKey = principal.parent.sessionKey;
       // A reset parent keeps running as an unbound parent; a failed read never pauses.
-      if (parentState === "removed" || parentState === "archived") {
+      if (parentState === "removed") {
         pause = { reason: parentState, parentSessionKey };
       } else if (
         parentState === "current" &&

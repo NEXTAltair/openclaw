@@ -157,7 +157,8 @@ it("continues a read-only parent review after errors and reports only applicable
   mocks.readSession.mockRejectedValueOnce(new Error("store locked"));
   const text = await noteText({});
   expect(text).toContain("- unreadable (unreadable): store locked");
-  expect(text).toContain(`- archived (archived): \`${archivedKey}\` is archived`);
+  // Archiving the creating conversation does not pause its automations.
+  expect(text).not.toContain(`\`${archivedKey}\``);
   expect(text).toContain("a creating conversation with no stored chat type");
   expect(text).toContain(`- no-chat-type (no-chat-type): \`${PARENT}\``);
   expect(text).toContain(`- other (other): ${ownerTools}`);

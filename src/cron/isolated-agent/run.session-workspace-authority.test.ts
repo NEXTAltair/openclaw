@@ -40,6 +40,7 @@ import {
 } from "./run.authority.test-support.js";
 import { realCronSession } from "./run.session.test-support.js";
 import { loadRunCronIsolatedAgentTurn, runEmbeddedAgentMock } from "./run.test-harness.js";
+import { loadCronSessionEntryLatest } from "./session.js";
 
 const sessionRunner = vi.hoisted(() => ({
   runEmbedded: vi.fn<typeof import("../../agents/embedded-agent-runner/run.js").runEmbeddedAgent>(),
@@ -82,6 +83,7 @@ it.each([
   "isolated-child",
   "isolated-child-managed",
   "isolated-child-reset",
+  "isolated-child-archived",
 ] as const)("scheduled file access respects %s conversation workspace", async (scenario) => {
   // An isolated job created in a conversation is its child and runs in that conversation's binding.
   const isolatedChild = scenario.startsWith("isolated-child");
@@ -107,7 +109,9 @@ it.each([
     : undefined;
   const ownWorkspace =
     worktree?.path ??
-    (scenario === "isolated-child" || scenario === "isolated-child-reset"
+    (scenario === "isolated-child" ||
+    scenario === "isolated-child-reset" ||
+    scenario === "isolated-child-archived"
       ? tempDirs.make("cron-parent-workspace-")
       : stateDir);
   await fs.writeFile(path.join(stateDir, "sentinel.txt"), "DEFAULT_WORKSPACE");
@@ -190,7 +194,8 @@ it.each([
     });
   }
   const job = expectDefined((await fixture.read())[0], "persisted job");
-  if (scenario === "archived") {
+  const archived = scenario === "archived" || scenario === "isolated-child-archived";
+  if (archived) {
     replaceSessionEntrySync({ sessionKey: SESSION }, { ...creatorEntry, archivedAt: Date.now() });
   }
   let resetRefusal = "";
@@ -249,14 +254,9 @@ it.each([
   try {
     await execution.run(job.id, "force");
     const result = execution.getJob(job.id)?.state;
-    if (scenario === "archived") {
-      // The occurrence admission pauses the job before any session turn runs.
-      expect(runEmbeddedAgentMock).not.toHaveBeenCalled();
-      expect(result?.lastRunStatus).toBe("skipped");
-      expect(result?.lastError).toMatch(/it was archived/);
-      expect(execution.getJob(job.id)?.enabled).toBe(false);
-    } else if (
+    if (
       scenario === "foreign" ||
+      scenario === "archived" ||
       scenario === "managed-foreign-owner" ||
       scenario === "managed-manual-owner" ||
       scenario === "managed-escape"
@@ -266,9 +266,11 @@ it.each([
       expect(result?.lastError).toMatch(
         scenario === "foreign"
           ? /only use its owning conversation’s workspace/
-          : scenario === "managed-escape"
-            ? /workspace does not match its managed worktree/
-            : /worktree is missing, retired, or mismatched/,
+          : scenario === "archived"
+            ? /is archived/
+            : scenario === "managed-escape"
+              ? /workspace does not match its managed worktree/
+              : /worktree is missing, retired, or mismatched/,
       );
     } else if (scenario !== "isolated-child-reset") {
       expect(result?.lastRunStatus, result?.lastError).toBe("ok");
@@ -276,6 +278,16 @@ it.each([
     } else {
       expect(runEmbeddedAgentMock).toHaveBeenCalledOnce();
       expect(resetRefusal).toMatch(/no longer active/);
+    }
+    if (archived) {
+      // Archiving the creator is not a pause: a child keeps running under the creator's binding,
+      // an in-session run meets the ordinary archived-session refusal, and neither restores it.
+      expect(result?.lastError ?? "").not.toMatch(/is paused/);
+      const creator = await loadCronSessionEntryLatest(
+        resolveSessionStorePathCore(config.session?.store, { agentId: "main" }),
+        SESSION,
+      );
+      expect(creator?.archivedAt).toBeDefined();
     }
     if (worktree) {
       expect(hasLiveWorktreeRunLease(process.env, worktree.id)).toBe(false);

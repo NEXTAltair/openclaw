@@ -128,7 +128,6 @@ type ScheduledParentRowFacts =
       missing?: false;
       sessionId: string;
       lifecycleRevision?: string;
-      archived: boolean;
       workspaceDir?: string;
       cwd?: string;
       worktree?: Readonly<{ path: string; exists: boolean }>;
@@ -153,7 +152,7 @@ export type ScheduledAdmissionFacts = Readonly<{
   requesterCheck?: Readonly<{ owner: boolean }>;
 }>;
 
-type ScheduledParentUnavailableReason = "removed" | "archived" | "worktree-missing";
+type ScheduledParentUnavailableReason = "removed" | "worktree-missing";
 
 export type ScheduledExecutionContextResult =
   | Readonly<{ status: "ready"; facts: ScheduledExecutionFacts }>
@@ -277,9 +276,7 @@ export function classifyScheduledParent(
   if (row.missing) {
     return "removed";
   }
-  if (row.archived) {
-    return "archived";
-  }
+  // Archiving only hides a conversation from lists; its automations keep its binding and access.
   // A link stored without a lifecycle revision can only prove the session id.
   if (
     row.sessionId !== parent.sessionId ||

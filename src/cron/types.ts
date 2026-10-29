@@ -239,7 +239,7 @@ export type CronRunOutcome = {
 
 /** Why a parent-linked job pauses before any session is created. */
 export type CronParentUnavailable = {
-  reason: "removed" | "archived" | "worktree-missing";
+  reason: "removed" | "worktree-missing";
   parentSessionKey: string;
   worktreePath?: string;
 };

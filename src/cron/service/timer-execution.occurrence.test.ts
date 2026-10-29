@@ -184,7 +184,7 @@ describe("scheduled occurrence admission", () => {
     async ({ kind, sessionTarget, withTrigger }) => {
       const { state, seen } = harness();
       const pause = {
-        reason: "archived" as const,
+        reason: "removed" as const,
         parentSessionKey: "agent:main:dashboard:parent",
       };
       state.deps.admitScheduledOccurrence = async () => ({

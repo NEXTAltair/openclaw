@@ -22,6 +22,7 @@ it("keeps successive exact-run rows limited to their own provider rollover linea
     previousSessionId: undefined,
     resetBoundaryPending: undefined,
     initialSessionEntry: entry,
+    restoresArchivedSession: false,
   };
   const familySizes: Array<number | undefined> = [];
   for (let run = 0; run < 4; run += 1) {

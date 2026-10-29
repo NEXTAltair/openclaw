@@ -331,13 +331,10 @@ describe("occurrence pause", () => {
     expect(readSessionEntryInWorker).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["removed", undefined],
-    ["archived", { sessionId: "parent-session", lifecycleRevision: "rev-1", archivedAt: 1 }],
-  ] as const)("pauses when the parent is %s", async (reason, entry) => {
-    readSessionEntryInWorker.mockResolvedValue(entry);
+  it("pauses when the parent is removed", async () => {
+    readSessionEntryInWorker.mockResolvedValue(undefined);
     const occurrence = await admit(linked);
-    expect(occurrence.pause).toEqual({ reason, parentSessionKey: PARENT_KEY });
+    expect(occurrence.pause).toEqual({ reason: "removed", parentSessionKey: PARENT_KEY });
     expect(prepareSessionGenerationFacts).not.toHaveBeenCalled();
   });
 
@@ -494,10 +491,10 @@ describe("occurrence pause", () => {
   it("names the parent and the repair in the notice", () => {
     const text = buildScheduledParentPauseNotice({
       job: { id: "job-1", name: `${"a".repeat(119)}📊 tail` },
-      pause: { reason: "archived", parentSessionKey: PARENT_KEY },
+      pause: { reason: "removed", parentSessionKey: PARENT_KEY },
     });
     expect(text).toContain(`Automation "${"a".repeat(119)}" is paused`);
-    expect(text).toContain(`\`${PARENT_KEY}\`, is unavailable: it was archived.`);
+    expect(text).toContain(`\`${PARENT_KEY}\`, is unavailable: it was removed.`);
     expect(text).toContain("openclaw automations enable job-1");
   });
 });

@@ -42,7 +42,6 @@ const linked: Partial<CronStoredJob> = {
 const liveParent = {
   sessionId: "parent-session",
   lifecycleRevision: "r1",
-  archived: false,
   sandboxRequired: false,
 } as const;
 
@@ -156,13 +155,12 @@ describe("scheduled-run access review", () => {
     expect(formatScheduledContextReport(report)).toBeNull();
   });
 
-  it.each([
-    ["removed", { missing: true } as const, "was removed"],
-    ["archived", { ...liveParent, archived: true }, "is archived"],
-  ])("reports a job whose parent was %s as pausing", (cause, parentRow, text) => {
-    const report = classify(observe(storedJob(linked), parentRow, true));
-    expect(report.pauses).toEqual([expect.objectContaining({ parentSessionKey: PARENT, cause })]);
-    expect(formatScheduledContextReport(report)).toContain(`\`${PARENT}\` ${text}`);
+  it("reports a job whose parent was removed as pausing", () => {
+    const report = classify(observe(storedJob(linked), { missing: true }, true));
+    expect(report.pauses).toEqual([
+      expect.objectContaining({ parentSessionKey: PARENT, cause: "removed" }),
+    ]);
+    expect(formatScheduledContextReport(report)).toContain(`\`${PARENT}\` was removed`);
   });
 
   it("reports a job whose parent worktree is missing as pausing with the path", () => {

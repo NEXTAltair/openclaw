@@ -42,7 +42,7 @@ it.each([false, true])("handles a missing parent (command=%s)", async (command) 
         : { onEvent: (event: CronEvent) => events.push(event), enqueueSessionEvent }),
       admitScheduledOccurrence: async () => ({
         ...unadmittedScheduledOccurrence("parent gone"),
-        pause: { reason: command ? "removed" : "archived", parentSessionKey: PARENT_KEY },
+        pause: { reason: "removed", parentSessionKey: PARENT_KEY },
       }),
     });
     await saveCronStore(storePath, { version: 1, jobs: [job] });
@@ -58,7 +58,7 @@ it.each([false, true])("handles a missing parent (command=%s)", async (command) 
       expect(runner).not.toHaveBeenCalled();
       expect(persisted?.enabled).toBe(false);
       expect(persisted?.state.lastError).toContain(`\`${PARENT_KEY}\``);
-      // The archived conversation cannot accept the notice; the owning agent gets it.
+      // The removed conversation cannot accept the notice; the owning agent gets it.
       await vi.waitFor(() => expect(enqueueSessionEvent).toHaveBeenCalledOnce());
       expect(enqueueSessionEvent).toHaveBeenCalledWith(
         expect.stringContaining(PARENT_KEY),

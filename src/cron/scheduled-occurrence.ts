@@ -47,7 +47,7 @@ export type MintedScheduledExecution = Readonly<{
 
 /** One admitted occurrence. Every scheduled agent run mints its context from it. */
 export type ScheduledOccurrence = Readonly<{
-  /** Set when the exact parent is removed or archived, or its bound worktree is gone. */
+  /** Set when the exact parent is removed or its bound worktree is gone. */
   pause?: CronParentUnavailable;
   /** A child run's parent row, read once by the admission. */
   childParent?: Readonly<{

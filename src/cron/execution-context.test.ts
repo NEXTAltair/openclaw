@@ -59,7 +59,6 @@ function facts(overrides: Partial<ScheduledAdmissionFacts> = {}): ScheduledAdmis
     parentRow: {
       sessionId: "parent-session",
       lifecycleRevision: "rev-1",
-      archived: false,
       sandboxRequired: false,
       workspaceDir: "/work/parent",
     },
@@ -271,19 +270,13 @@ describe("buildScheduledExecutionContext parent lifecycle", () => {
   const live = {
     sessionId: "parent-session",
     lifecycleRevision: "rev-1",
-    archived: false,
     sandboxRequired: false,
   };
 
-  it.each([
-    ["removed", { missing: true } as const],
-    ["archived", { ...live, archived: true }],
-  ] as const)("pauses when the parent is %s", (reason, parentRow) => {
-    expect(buildScheduledExecutionContext(parentLinked(), facts({ parentRow }))).toEqual({
-      status: "pause",
-      reason,
-      parentSessionKey: PARENT_KEY,
-    });
+  it("pauses when the parent is removed", () => {
+    expect(
+      buildScheduledExecutionContext(parentLinked(), facts({ parentRow: { missing: true } })),
+    ).toEqual({ status: "pause", reason: "removed", parentSessionKey: PARENT_KEY });
   });
 
   it.each([
@@ -364,7 +357,6 @@ describe("buildScheduledExecutionContext scopes", () => {
         parentRow: {
           sessionId: "parent-session",
           lifecycleRevision: "rev-1",
-          archived: false,
           sandboxRequired: true,
         },
       }).basis,
