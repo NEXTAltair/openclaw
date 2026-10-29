@@ -37,7 +37,7 @@ export function assertNativeRestartFlags(opts: DaemonLifecycleOptions): void {
   }
 }
 
-export function shouldUseImplicitSafeRestart(
+function shouldUseImplicitSafeRestart(
   opts: DaemonLifecycleOptions,
   env: NodeJS.ProcessEnv,
 ): boolean {
@@ -188,9 +188,7 @@ export async function requestSafeGatewayRestartIfNeeded(
     return undefined;
   }
   assertGatewayServiceFallbackAllowed("safe RPC restart");
-  return await runSafeGatewayRestart(
-    { ...opts, safe: true },
-    undefined,
-    { useStoredDeviceAuth: implicitSafeRestart },
-  );
+  return await runSafeGatewayRestart({ ...opts, safe: true }, undefined, {
+    useStoredDeviceAuth: implicitSafeRestart,
+  });
 }
