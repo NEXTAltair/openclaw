@@ -15,7 +15,9 @@ import { resolveTrustedOnePasswordCli } from "./onepassword-op-path.js";
 import { resolveOnePasswordSecretReference } from "./onepassword-secret-id.js";
 
 const OP_READ_CONCURRENCY = 4;
-const OP_READ_TIMEOUT_MS = 7_000;
+// Service-account reads were observed taking 5-8 s each on a slow 1Password network. The
+// manifest provider timeout, which core caps at 120 s, must cover eight waves of this.
+const OP_READ_TIMEOUT_MS = 14_000;
 const MAX_SECRET_REFS_PER_REQUEST = 32;
 const MAX_SECRET_VALUE_BYTES = 64 * 1024;
 const MAX_ERROR_DETAIL_CHARS = 512;

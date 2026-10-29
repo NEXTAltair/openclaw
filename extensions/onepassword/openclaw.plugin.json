@@ -32,8 +32,8 @@
       "source": "exec",
       "command": "${node}",
       "args": ["./onepassword-secret-ref-resolver.js"],
-      "timeoutMs": 90000,
-      "noOutputTimeoutMs": 90000,
+      "timeoutMs": 120000,
+      "noOutputTimeoutMs": 120000,
       "maxOutputBytes": 16777216,
       "passEnv": [
         "HOME",

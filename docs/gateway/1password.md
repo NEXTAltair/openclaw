@@ -125,7 +125,7 @@ One-time passcodes are filled by 1Password on the same page; never relay verific
   have unverifiable Windows ACLs or ownership. An absolute
   `CLAW_1PASSWORD_OP` override is subject to the same check.
 - A resolver request is limited to 32 references. Reads run four at a time with
-  a seven-second per-read timeout; the provider-wide 90-second timeout covers
+  a 14-second per-read timeout; the provider-wide 120-second timeout covers
   the full supported batch plus process and permission-check overhead.
 - Never place secret values in `openclaw.json`, logs, or chat. Scope the service
   account to only the vaults and items OpenClaw needs.

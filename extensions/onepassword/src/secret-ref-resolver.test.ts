@@ -59,7 +59,7 @@ beforeAll(async () => {
   resolverPath = path.join(stagedResolverRoot, path.basename(sourceResolverPath));
   const resolverSource = fs.readFileSync(sourceResolverPath, "utf8");
   const timeoutResolverSource = resolverSource.replace(
-    "const OP_READ_TIMEOUT_MS = 7_000;",
+    "const OP_READ_TIMEOUT_MS = 14_000;",
     `const OP_READ_TIMEOUT_MS = ${TEST_OP_READ_TIMEOUT_MS};`,
   );
   if (timeoutResolverSource === resolverSource) {
@@ -246,8 +246,8 @@ describe("plugin manifest", () => {
       source: "exec",
       command: "${node}",
       args: ["./onepassword-secret-ref-resolver.js"],
-      timeoutMs: 90_000,
-      noOutputTimeoutMs: 90_000,
+      timeoutMs: 120_000,
+      noOutputTimeoutMs: 120_000,
       maxOutputBytes: 16 * 1024 * 1024,
       passEnv: expect.arrayContaining([
         "HOME",
