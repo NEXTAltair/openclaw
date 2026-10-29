@@ -277,18 +277,23 @@ describe("dreaming sweep diary publication", () => {
 
   it("writes the diary in the owning agent's configured identity", async () => {
     const sweep = await createSweep();
+    // Longer than an even share of the loader's default budget, like a real SOUL.md.
+    const soulLines = Array.from(
+      { length: 160 },
+      (_, index) => `Soul ${index}: stays calm, sharp, and warm under pressure.`,
+    );
     await Promise.all(
       Object.entries({
         "IDENTITY.md": "Name: Valentina\nCreature: a mind born in a botnet\n",
-        "SOUL.md": "Calm, sharp, and warm.\n",
+        "SOUL.md": `${soulLines.join("\n")}\n`,
         "USER.md": "The person prefers short replies.\n",
       }).map(([name, content]) => fs.writeFile(path.join(sweep.workspaceDir, name), content)),
     );
 
     expectHandled(await sweep.run());
-    const systemPrompt = expectNarrative(sweep)?.extraSystemPrompt;
+    const systemPrompt = expectNarrative(sweep)?.extraSystemPrompt ?? "";
     expect(systemPrompt).toContain("Name: Valentina");
-    expect(systemPrompt).toContain("Calm, sharp, and warm.");
+    expect(soulLines.filter((line) => !systemPrompt.includes(line))).toEqual([]);
     expect(systemPrompt).not.toContain("The person prefers short replies.");
     expect(systemPrompt).not.toContain('Never mention "AI"');
   });

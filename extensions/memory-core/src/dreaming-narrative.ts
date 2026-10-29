@@ -65,6 +65,9 @@ const NARRATIVE_SYSTEM_PROMPT = [
 
 // USER.md describes the person, not the diarist; keep it out of DREAMS.md prose.
 const NARRATIVE_PROFILE_FILES = ["IDENTITY.md", "SOUL.md"];
+// The profile loader splits its budget evenly across files. Give each file about the
+// agent bootstrap's 20,000-character default so the diary sees the profile the agent loads.
+const NARRATIVE_PROFILE_MAX_CHARS = NARRATIVE_PROFILE_FILES.length * 20_000;
 
 const RECENT_DIARY_CONTEXT_LIMIT = 3;
 function isRequestScopedSubagentRuntimeError(err: unknown): boolean {
@@ -198,6 +201,7 @@ async function buildNarrativeSystemPrompt(params: DreamNarrativeRequest): Promis
     agentId: params.agentId,
     config: params.cfg,
     files: NARRATIVE_PROFILE_FILES,
+    maxChars: NARRATIVE_PROFILE_MAX_CHARS,
     warn,
   }).catch((error: unknown) => {
     warn(`unavailable (${formatErrorMessage(error)})`);
