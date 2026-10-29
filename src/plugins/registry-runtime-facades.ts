@@ -45,6 +45,7 @@ export function createPluginRuntimeFacades(invokeSelectedRuntime: <T>(run: () =>
       "search",
     ]),
     tts: createRuntimeFacade<PluginRuntime["tts"]>(invokeSelectedRuntime, [
+      "prepareSpeechPromptContext",
       "prepareTtsRequest",
       "textToSpeech",
       "textToSpeechStream",
