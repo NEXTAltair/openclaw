@@ -73,7 +73,9 @@ Worst-case blocking time is `timeoutMs + setupGraceTimeoutMs + 3000` ms (the
 configured recall-work budget, plus up to 1500 ms preflight, plus a fixed
 1500 ms post-recall completion allowance). The embedded recall runner uses
 the same effective timeout budget, so `setupGraceTimeoutMs` covers both the
-outer prompt-build watchdog and the inner blocking recall run.
+outer prompt-build watchdog and the inner blocking recall run. A recall that
+uses up its budget keeps that timeout for the rest of the turn, so a harness
+that rebuilds the prompt for the same request does not start another recall.
 
 For resource-tight gateways where cold-start latency is an accepted
 trade-off, lower values (5000-15000 ms) work too — the trade-off is a higher

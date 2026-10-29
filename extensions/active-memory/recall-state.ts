@@ -99,9 +99,16 @@ export async function resolveActiveRecallForRun(
 ): Promise<ActiveRecallResult> {
   const existing = activeRecallRuns.get(runId);
   if (existing?.timeoutCleanup) {
-    // A replacement must not reuse managers while the timed-out recall or its
+    const [settled] = await Promise.allSettled([existing.promise]);
+    if (settled.status === "fulfilled") {
+      // A recall that spent its own budget keeps its timeout result for the run:
+      // prompt rebuilds repeat the same request, and rerunning it would block the
+      // turn for another full budget without a better chance (#106957).
+      return settled.value;
+    }
+    // A replacement for a parent-aborted recall must not reuse managers while its
     // cleanup is still settling; concurrent callers then join the replacement.
-    await Promise.allSettled([existing.promise, existing.timeoutCleanup]);
+    await existing.timeoutCleanup;
     if (activeRecallRuns.get(runId) === existing) {
       activeRecallRuns.delete(runId);
     }
@@ -115,7 +122,8 @@ export async function resolveActiveRecallForRun(
     promise: Promise.resolve().then(() =>
       start((cleanup) => {
         entry.timeoutCleanup = cleanup;
-        void Promise.allSettled([entry.promise, cleanup]).then(() => {
+        void entry.promise.catch(async () => {
+          await cleanup;
           if (activeRecallRuns.get(runId) === entry) {
             activeRecallRuns.delete(runId);
           }

@@ -961,48 +961,45 @@ describe("active-memory plugin", () => {
     expectRecallContains(secondResult, "lemon pepper wings");
   });
 
-  it("waits for timeout cleanup before replacing a recall in the same run", async () => {
+  it("keeps a timed-out recall for prompt rebuilds in the same run", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
     configureRecallTimeout(250);
     const firstStarted = createDeferred<void>();
-    const cleanupStarted = createDeferred<void>();
-    const cleanupGate = createDeferred<void>();
+    const cleanupDone = createDeferred<void>();
     hoisted.closeActiveMemorySearchManager.mockImplementationOnce(async () => {
-      cleanupStarted.resolve();
-      await cleanupGate.promise;
+      cleanupDone.resolve();
     });
     mockRun(async (params) => {
       firstStarted.resolve();
       return await waitForAbort(params.abortSignal);
     });
-    const context = {
-      runId: "run-timeout-retry",
-      sessionKey: "agent:main:timeout-retry",
-    };
-    const event = { prompt: "what wings should i order?" };
-    const first = runPromptBuild(event, context);
+    const sessionKey = "agent:main:timeout-retry";
+    // Codex rebuilds the prompt from new projected history for the same admitted request.
+    const build = (history: string, runId = "run-timeout-retry") =>
+      runPromptBuild(
+        {
+          prompt: history,
+          currentUserMessage: "what wings should i order?",
+          currentUserMessageId: "message-1",
+        },
+        { runId, sessionKey },
+      );
+    const first = build("projected history one");
     await firstStarted.promise;
     await vi.advanceTimersByTimeAsync(250);
     await expect(first).resolves.toBeUndefined();
     await vi.advanceTimersByTimeAsync(1);
-    await cleanupStarted.promise;
-    const retry = runPromptBuild(event, context);
-    try {
-      await new Promise<void>((resolve) => {
-        setImmediate(resolve);
-      });
-      expect(runEmbeddedAgent).toHaveBeenCalledTimes(1);
-    } finally {
-      cleanupGate.resolve();
-    }
+    await cleanupDone.promise;
+    await expect(build("projected history two")).resolves.toBeUndefined();
+    expect(runEmbeddedAgent).toHaveBeenCalledTimes(1);
 
-    await expect(retry).resolves.toEqual(
+    await expect(build("projected history three", "run-next-turn")).resolves.toEqual(
       expect.objectContaining({ prependContext: expect.stringContaining("lemon pepper wings") }),
     );
     expect(runEmbeddedAgent).toHaveBeenCalledTimes(2);
   });
 
-  it("evicts a rejected replacement after timeout cleanup settles", async () => {
+  it("replaces a parent-aborted recall only after timeout cleanup settles", async () => {
     const { promise: cleanupGate, resolve: releaseCleanup } = createDeferred<void>();
     const pending: Array<ReturnType<typeof resolveActiveRecallForRun>> = [];
     const recall = (start: Parameters<typeof resolveActiveRecallForRun>[1]) => {
@@ -1015,18 +1012,21 @@ describe("active-memory plugin", () => {
       await Promise.allSettled(pending);
       forgetActiveRecallRun("run-rejected-replacement");
     });
-    const initialResult = { status: "timeout" as const, elapsedMs: 1, summary: null };
     await expect(
       recall(async (onTimeoutCleanup) => {
         onTimeoutCleanup(cleanupGate);
-        return initialResult;
+        throw new Error("parent deadline expired");
       }),
-    ).resolves.toEqual(initialResult);
+    ).rejects.toThrow("parent deadline expired");
     let rejectedReplacementStarts = 0;
     const rejectedReplacement = recall(async () => {
       rejectedReplacementStarts++;
       throw new Error("retry deadline expired");
     });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(rejectedReplacementStarts).toBe(0);
     releaseCleanup();
     await expect(rejectedReplacement).rejects.toThrow("retry deadline expired");
     const freshResult = {
