@@ -1,4 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import {
+  requestSafeGatewayRestartIfNeeded,
+  shouldUseImplicitSafeRestart,
+} from "./lifecycle-safe-restart.js";
 
 const callGatewayCli = vi.hoisted(() => vi.fn());
 const refreshLegacySystemdServiceMetadata = vi.hoisted(() =>
@@ -83,4 +87,49 @@ it("keeps the RPC restart while skipping ineligible service mutation", async () 
   expect(refreshLegacySystemdServiceMetadata).not.toHaveBeenCalled();
   expect(callGatewayCli).toHaveBeenCalledOnce();
   expect(runtimeError).toHaveBeenCalledWith(expect.stringContaining("external supervisor"));
+});
+
+const gatewayEnv = {
+  OPENCLAW_SERVICE_KIND: "gateway",
+  OPENCLAW_GATEWAY_SERVICE_PID: "4200",
+};
+
+it("uses safe restart for a plain command running inside the gateway service", () => {
+  expect(shouldUseImplicitSafeRestart({}, gatewayEnv)).toBe(true);
+});
+
+it("does not override explicit lifecycle controls", () => {
+  expect(shouldUseImplicitSafeRestart({ safe: true }, gatewayEnv)).toBe(false);
+  expect(shouldUseImplicitSafeRestart({ force: true }, gatewayEnv)).toBe(false);
+  expect(shouldUseImplicitSafeRestart({ wait: "30s" }, gatewayEnv)).toBe(false);
+  expect(shouldUseImplicitSafeRestart({ skipDeferral: true }, gatewayEnv)).toBe(false);
+});
+
+it("does not affect commands outside the gateway service", () => {
+  expect(shouldUseImplicitSafeRestart({}, {})).toBe(false);
+  expect(
+    shouldUseImplicitSafeRestart(
+      {},
+      { OPENCLAW_SERVICE_KIND: "gateway", OPENCLAW_GATEWAY_SERVICE_PID: "invalid" },
+    ),
+  ).toBe(false);
+});
+
+it("uses local admin device auth without resolving SecretRefs", async () => {
+  callGatewayCli.mockResolvedValueOnce({
+    status: "deferred",
+    preflight: { blockers: [], summary: "restart deferred" },
+    restart: { pid: 4200 },
+  });
+
+  await requestSafeGatewayRestartIfNeeded({}, gatewayEnv);
+
+  expect(callGatewayCli).toHaveBeenCalledWith({
+    method: "gateway.restart.request",
+    params: { reason: "gateway.restart.safe" },
+    timeoutMs: 10_000,
+    useStoredDeviceAuth: true,
+    requiredStoredDeviceAuthScopes: ["operator.admin"],
+    ignoreEnvUrlOverride: true,
+  });
 });

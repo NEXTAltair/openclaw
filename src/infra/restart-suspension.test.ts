@@ -10,6 +10,10 @@ import {
   tryBeginGatewaySuspendAdmission,
 } from "../process/gateway-work-admission.js";
 import {
+  beginSessionEffect,
+  getSessionControllerWorkCount,
+} from "../sessions/session-controller.lifecycle.js";
+import {
   getGatewaySuspendStatus,
   prepareGatewaySuspend,
   resetGatewaySuspendCoordinatorForLifecycleRestart,
@@ -584,6 +588,47 @@ describe("scheduled restart during gateway suspension", () => {
     scheduleGatewayRestart({ delayMs: 0 });
     await advanceRestart(0, 2);
     expect(preRestartCheck).toHaveBeenCalled();
+  });
+
+  it("keeps foreground turn admission open while restart is deferred and accepts a turn after restart", async () => {
+    setPreRestartDeferralCheck(() => getSessionControllerWorkCount());
+
+    const firstTurn = await beginSessionEffect({
+      scope: "restart-deferral",
+      identities: ["agent:main:dashboard:first"],
+      assertAllowed: () => {},
+    });
+    scheduleGatewayRestart({ delayMs: 0, reason: "agent-requested-restart" });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expectSignals(0);
+    expect(isGatewayWorkAdmissionClosed()).toBe(false);
+
+    const queuedUserTurn = await beginSessionEffect({
+      scope: "restart-deferral",
+      identities: ["agent:main:dashboard:next"],
+      assertAllowed: () => {},
+    });
+    expect(getSessionControllerWorkCount()).toBe(2);
+
+    firstTurn.release();
+    await vi.advanceTimersByTimeAsync(500);
+    expectSignals(0);
+
+    queuedUserTurn.release();
+    await vi.advanceTimersByTimeAsync(500);
+    expectSignals(1);
+    expect(isGatewayWorkAdmissionClosed()).toBe(true);
+
+    resetGatewayRestartStateForInProcessRestart();
+    resetGatewayWorkAdmission();
+    const postRestartTurn = await beginSessionEffect({
+      scope: "restart-deferral",
+      identities: ["agent:main:dashboard:post-restart"],
+      assertAllowed: () => {},
+    });
+    expect(getSessionControllerWorkCount()).toBe(1);
+    postRestartTurn.release();
   });
 
   it.each([false, true])("cancels pending restart on reset (suspended: %s)", async (suspended) => {

@@ -64,6 +64,7 @@ import {
 import {
   assertNativeRestartFlags,
   runSafeGatewayRestart,
+  requestSafeGatewayRestartIfNeeded,
   resolveGatewayRestartIntentOptions,
 } from "./lifecycle-safe-restart.js";
 import { signalGatewayRestart } from "./lifecycle-unmanaged.js";
@@ -465,13 +466,13 @@ export async function runDaemonRestart(opts: DaemonLifecycleOptions = {}): Promi
     assertGatewayServiceMutationAllowed("restart the gateway");
   }
   assertNativeRestartFlags(opts);
+  const safeRestart = await requestSafeGatewayRestartIfNeeded(opts, process.env);
+  if (safeRestart !== undefined) {
+    return safeRestart;
+  }
   if (isGatewayExternallySupervised()) {
     assertGatewayServiceFallbackAllowed("external-supervisor restart");
     return await runExternalSupervisorRestart(opts);
-  }
-  if (opts.safe) {
-    assertGatewayServiceFallbackAllowed("safe RPC restart");
-    return await runSafeGatewayRestart(opts);
   }
   const jsonOutput = Boolean(opts.json);
   const service = resolveGatewayService();
