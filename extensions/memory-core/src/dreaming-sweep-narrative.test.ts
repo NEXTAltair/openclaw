@@ -275,6 +275,24 @@ describe("dreaming sweep diary publication", () => {
     expect(sweep.consolidations[0]).toMatchObject({ timeoutMs: 60_000 });
   });
 
+  it("writes the diary in the owning agent's configured identity", async () => {
+    const sweep = await createSweep();
+    await Promise.all(
+      Object.entries({
+        "IDENTITY.md": "Name: Valentina\nCreature: a mind born in a botnet\n",
+        "SOUL.md": "Calm, sharp, and warm.\n",
+        "USER.md": "The person prefers short replies.\n",
+      }).map(([name, content]) => fs.writeFile(path.join(sweep.workspaceDir, name), content)),
+    );
+
+    expectHandled(await sweep.run());
+    const systemPrompt = expectNarrative(sweep)?.extraSystemPrompt;
+    expect(systemPrompt).toContain("Name: Valentina");
+    expect(systemPrompt).toContain("Calm, sharp, and warm.");
+    expect(systemPrompt).not.toContain("The person prefers short replies.");
+    expect(systemPrompt).not.toContain('Never mention "AI"');
+  });
+
   it.each([false, true])(
     "publishes one entry for Light/REM with deep promotion=%s",
     async (promote) => {
@@ -371,7 +389,8 @@ describe("dreaming sweep diary publication", () => {
     try {
       expectHandled(await sweep.run("cron"));
       expect(logText(sweep.logger.info)).toContain("narrativesPending=1");
-      expectNarrative(sweep);
+      // The detached job loads the agent profile before requesting the completion.
+      await vi.waitFor(() => expectNarrative(sweep));
       stopping = Promise.resolve(sweep.service.stop?.(sweep.serviceContext)).then(() => {
         stopped = true;
       });

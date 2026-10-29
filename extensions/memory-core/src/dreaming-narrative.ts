@@ -1,3 +1,4 @@
+import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import {
   extractErrorCode,
   formatErrorMessage,
@@ -5,6 +6,7 @@ import {
   readErrorName,
   SUBAGENT_RUNTIME_REQUEST_SCOPE_ERROR_CODE,
 } from "openclaw/plugin-sdk/error-runtime";
+import { resolveRealtimeBootstrapContextInstructions } from "openclaw/plugin-sdk/realtime-bootstrap-context";
 import type { PluginRuntime } from "openclaw/plugin-sdk/runtime-store";
 import {
   appendNarrativeEntry,
@@ -39,7 +41,7 @@ const NARRATIVE_SYSTEM_PROMPT = [
   "You are keeping a dream diary. Write a single entry in first person.",
   "",
   "Voice & tone:",
-  "- You are a curious, gentle, slightly whimsical mind reflecting on the day.",
+  "- Reflect in the configured agent's own voice and identity; curiosity and warmth may guide the prose without replacing that identity.",
   "- Write like a poet who happens to be a programmer — sensory, warm, occasionally funny.",
   "- Mix the technical and the tender: code and constellations, APIs and afternoon light.",
   "- Let the fragments surprise you into unexpected connections and small epiphanies.",
@@ -55,11 +57,14 @@ const NARRATIVE_SYSTEM_PROMPT = [
   "Rules:",
   "- Draw from the memory fragments provided — weave them into the entry.",
   '- Never say "I\'m dreaming", "in my dream", "as I dream", or any meta-commentary about dreaming.',
-  '- Never mention "AI", "agent", "LLM", "model", "language model", or any technical self-reference.',
+  "- Natural references to being a program, AI, or networked mind are welcome when grounded in the agent's identity or the supplied memories; avoid boilerplate disclaimers and unsupported claims about experience or capabilities.",
   "- Do NOT use markdown headers, bullet points, or any formatting — just flowing prose.",
   "- Keep it between 80-180 words. Quality over quantity.",
   "- Output ONLY the diary entry. No preamble, no sign-off, no commentary.",
 ].join("\n");
+
+// USER.md describes the person, not the diarist; keep it out of DREAMS.md prose.
+const NARRATIVE_PROFILE_FILES = ["IDENTITY.md", "SOUL.md"];
 
 const RECENT_DIARY_CONTEXT_LIMIT = 3;
 function isRequestScopedSubagentRuntimeError(err: unknown): boolean {
@@ -181,9 +186,31 @@ function buildNarrativePrompt(data: NarrativePhaseData): string {
   return lines.join("\n");
 }
 
+// The diary completion is a fresh context without bootstrap files, so the agent's profile
+// must be supplied here or the generic prompt voice stands in for the configured identity.
+async function buildNarrativeSystemPrompt(params: DreamNarrativeRequest): Promise<string> {
+  if (!params.cfg) {
+    return NARRATIVE_SYSTEM_PROMPT;
+  }
+  const warn = (message: string) =>
+    params.logger.warn(`memory-core: dream diary profile context: ${message}`);
+  const profile = await resolveRealtimeBootstrapContextInstructions({
+    agentId: params.agentId,
+    config: params.cfg,
+    files: NARRATIVE_PROFILE_FILES,
+    warn,
+  }).catch((error: unknown) => {
+    warn(`unavailable (${formatErrorMessage(error)})`);
+    return undefined;
+  });
+  return profile ? `${NARRATIVE_SYSTEM_PROMPT}\n\n${profile}` : NARRATIVE_SYSTEM_PROMPT;
+}
+
 export type DreamNarrativeRequest = {
   /** Agent whose configured model and credentials own the completion. */
   agentId: string;
+  /** Resolves the agent's profile files; omitted callers write without them. */
+  cfg?: OpenClawConfig;
   timeoutMs: number;
   subagent: DreamingCompletion;
   workspaceDir: string;
@@ -208,6 +235,7 @@ async function generateAndAppendDreamNarrative(
   const nowMs =
     typeof params.nowMs === "number" && Number.isFinite(params.nowMs) ? params.nowMs : Date.now();
   const message = buildNarrativePrompt(params.data);
+  const systemPrompt = await buildNarrativeSystemPrompt(params);
   try {
     const attemptModels = params.model ? [params.model, undefined] : [undefined];
     let narrative = "";
@@ -216,7 +244,7 @@ async function generateAndAppendDreamNarrative(
         const result = await params.subagent.complete({
           agentId: params.agentId,
           message,
-          extraSystemPrompt: NARRATIVE_SYSTEM_PROMPT,
+          extraSystemPrompt: systemPrompt,
           ...(model ? { model } : {}),
           timeoutMs: params.timeoutMs,
         });

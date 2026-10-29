@@ -331,6 +331,7 @@ async function runShortTermDreamingPromotion(params: {
     } else {
       const narrativeOutcome = await runDreamNarrative({
         agentId,
+        cfg: params.cfg,
         timeoutMs: params.narrativeTimeoutMs,
         subagent: params.subagent,
         workspaceDir,

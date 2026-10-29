@@ -153,6 +153,13 @@ diary is omitted from optional context so other dreaming work can continue.
 Diary and consolidation completions use fresh contexts without retaining conversation sessions or delivering chat replies. Failed or empty diary generation writes a local fallback entry and reports a degraded outcome, so missing model output leaves a visible trace.
 Fallback placeholders remain in the diary but are excluded from recent continuity context, leaving those slots available for useful entries.
 
+Diary generation includes the owning agent's `IDENTITY.md` and `SOUL.md`, loaded
+through the normal workspace bootstrap files with a bounded character budget, so
+entries keep the configured agent's voice and identity. `USER.md` is not included.
+Grounded references to being a program, AI, or networked mind are allowed;
+boilerplate disclaimers and unsupported claims about experience or capabilities
+are discouraged.
+
 Diary generation uses the existing agent run budget, `agents.defaults.timeoutSeconds`,
 instead of a separate one-minute deadline. It inherits the same 48-hour default and
 timer-safe unlimited setting as agent runs. The selected provider's
