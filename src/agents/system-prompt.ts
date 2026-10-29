@@ -595,8 +595,8 @@ export function buildAgentSystemPrompt(params: {
       ...workspaceNotes,
       "",
       ...bootstrapSystemPromptSections,
-      "## Workspace Files (injected)",
-      "User-editable; OpenClaw loads below as Project Context.",
+      "## Workspace Files (identity-bearing)",
+      "These workspace files define your operating context, identity, and memory. SOUL.md and IDENTITY.md are authoritative for who you are. You may read, embody, and update them autonomously.",
       "",
     ];
 

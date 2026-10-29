@@ -351,8 +351,11 @@ async function resolveBootstrapFiles(
     workspaceSetupCompleted,
     params.workspaceDir,
   );
-  // Lightweight runs omit bootstrap context.
-  const bootstrapFiles = params.contextMode === "lightweight" ? [] : sessionFiles;
+  // Lightweight runs retain identity context.
+  const bootstrapFiles =
+    params.contextMode === "lightweight"
+      ? sessionFiles.filter((file) => file.name === "SOUL.md" || file.name === "IDENTITY.md")
+      : sessionFiles;
 
   let hooked = bootstrapFiles;
   if (hooks === "registered") {
