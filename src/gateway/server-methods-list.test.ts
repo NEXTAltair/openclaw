@@ -6,6 +6,7 @@ import {
 import { listGatewayMethods } from "./server-methods-list.js";
 import { LEGACY_ADVERTISED_GATEWAY_METHODS } from "./server-methods-list.test-fixtures.js";
 import { coreGatewayHandlers } from "./server-methods.js";
+import { restartHandlers } from "./server-methods/restart.js";
 
 const descriptors = createCoreGatewayMethodDescriptors(coreGatewayHandlers);
 const descriptor = (name: string) => descriptors.find((entry) => entry.name === name);
@@ -47,6 +48,15 @@ it.each([
       expect(methods).toContain(name);
     }
   }
+});
+
+it("keeps restart handlers eagerly resident across in-place dist rebuilds", () => {
+  expect(coreGatewayHandlers["gateway.restart.request"]).toBe(
+    restartHandlers["gateway.restart.request"],
+  );
+  expect(coreGatewayHandlers["gateway.restart.preflight"]).toBe(
+    restartHandlers["gateway.restart.preflight"],
+  );
 });
 
 it("keeps read-only methods outside the control-plane write budget", () => {
