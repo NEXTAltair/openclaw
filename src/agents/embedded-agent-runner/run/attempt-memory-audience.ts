@@ -8,7 +8,6 @@ import {
   resolveMemoryAudienceFromEntry,
 } from "../../../plugins/memory-audience.js";
 import type { MemoryAudience } from "../../../plugins/memory-provider-types.js";
-import { resolveLoadedMemoryProviderKind } from "../../../plugins/memory-state.js";
 import type { AdmittedRunContext } from "../../admitted-run-context.js";
 import { log } from "../logger.js";
 
@@ -46,10 +45,10 @@ export async function resolveEmbeddedAttemptMemoryAudience(params: {
     return { memoryAudience: run.memoryAudience, release: retainedAudience };
   }
   // Detached maintenance runs use their explicit delegation instead of deriving
-  // access from the maintenance copy's deliberately non-owner sender bit. Only a
-  // native memory provider consumes audiences; legacy owners resolve none, so
-  // their turns take no session leases and read no lineage.
-  if (!params.admission || resolveLoadedMemoryProviderKind(run.config ?? {}) !== "native") {
+  // access from the maintenance copy's deliberately non-owner sender bit.
+  // Prompt hooks, plugin tools, and Codex dynamic tools consume the audience
+  // under every memory owner, so legacy owners resolve it too.
+  if (!params.admission) {
     return { release: retainedAudience };
   }
   const resolution = await resolveMemoryAudienceFromEntry(
@@ -69,8 +68,8 @@ export async function resolveEmbeddedAttemptMemoryAudience(params: {
   if (resolution.status === "granted") {
     return { memoryAudience: resolution.audience, release: resolution.release };
   }
-  // A denial grants no private or conversation memory, and memory tools then
-  // fail pointing at this entry. Stale lineage warns because its reason names
+  // A denial grants no private or conversation memory, and audience consumers
+  // then fail pointing at this entry. Stale lineage warns because its reason names
   // the only repair; every other denial stays visible at info.
   const message = `memory audience unavailable: ${resolution.reason}`;
   const meta = {

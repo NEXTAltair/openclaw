@@ -235,7 +235,8 @@ for channels whose delivery is owned by a Gateway transport.
 
 For an admitted session turn, the optional
 `memoryAudience?: MemoryAudience` field carries the same host-resolved memory
-audience used by the selected memory provider. It is either
+audience used by the selected memory provider. The host resolves it whichever
+memory plugin owns the slot, including Memory Core. It is either
 `{ kind: "owner-private", agentId }` or
 `{ kind: "conversation", agentId, sessionKey, sessionId }`. The field is absent
 when the host cannot prove an audience or when no session turn exists. Plugins

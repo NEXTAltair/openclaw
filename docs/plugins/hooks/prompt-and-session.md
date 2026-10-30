@@ -258,6 +258,13 @@ Inter-session deliveries such as `sessions_send`, `subagent_settle`, and
 distinguish those inputs; do not parse prompt prefixes. Provenance describes
 origin and does not grant authority to use tools or access another session.
 
+For an admitted session turn, agent hook contexts also carry the host-resolved
+`ctx.memoryAudience` and its `ctx.assertMemoryAudienceCurrent()` guard, whichever
+memory plugin owns the slot. Call the guard immediately before publishing
+audience-gated context; it fails once any session in the captured lineage
+resets or the turn ends. The field is absent when the host cannot prove an
+audience. See [Memory audience](/plugins/sdk-overview/memory-and-context#memory-audience).
+
 For channel-originated runs, `ctx.channel` and `ctx.messageProvider` identify
 the provider surface such as `discord` or `telegram`, while `ctx.channelId` is
 the conversation target identifier when OpenClaw can derive one from the

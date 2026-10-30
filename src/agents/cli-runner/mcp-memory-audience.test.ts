@@ -26,10 +26,6 @@ vi.mock("../../config/sessions/session-entry-read-runtime.js", async () => {
     await import("../../plugins/memory-audience.test-support.js");
   return fakeSessionEntryReadModule;
 });
-// mock-isolation: selects the loaded memory provider kind without loading plugins.
-vi.mock("../../plugins/memory-state.js", () => ({
-  resolveLoadedMemoryProviderKind: () => "native",
-}));
 
 import { mintCliMcpClientGrant } from "./mcp-client-grant.js";
 import { resolveCliMcpMemoryAudience } from "./mcp-memory-audience.js";

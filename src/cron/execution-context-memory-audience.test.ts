@@ -21,8 +21,6 @@ vi.mock("../config/sessions/session-entry-read-runtime.js", async (importOrigina
       fakeSessionOwner.rows.get(sessionKey),
   };
 });
-// mock-isolation: a native provider is loaded without activating a real plugin.
-vi.mock("../plugins/memory-state.js", () => ({ resolveLoadedMemoryProviderKind: () => "native" }));
 // The requester's profile access is the owner check this occurrence runs.
 const profiles = vi.hoisted(() => ({ revoked: new Set<string>() }));
 vi.mock("../state/user-profile-list.js", async (importOriginal) => ({
