@@ -362,86 +362,30 @@ const cronPage = (...jobs: { id: string; name: string }[]) => ({
   nextOffset: null,
 });
 
-describe("archive confirmation for bound automations", () => {
-  it.each(["cancel", "confirm"] as const)(
-    "names bound automations before archiving and records the %s",
-    async (decision) => {
+describe("archive does not pause bound automations", () => {
+  it.each([true, false])(
+    "archives without an automation warning (bound=%s)",
+    async (hasAutomation) => {
       const modal = createModalDialogTestFixture();
       onTestFinished(() => modal.cleanup());
-      const info = vi.spyOn(console, "info").mockImplementation(() => {});
-      onTestFinished(() => info.mockRestore());
       const harness = createHarness();
       const cronList = withCronList(harness, async () =>
         cronPage({ id: "job-1", name: "Nightly digest" }),
       );
-      const row = { ...sessionRow(1), hasAutomation: true };
-      const pending = modal.track(archiveSessionWithUndo(harness.host, row, harness.scope));
-      const actions = await waitForConfirmDialogActions();
-      expect(cronList).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sessionKey: row.key,
-          sessionAgentId: "main",
-          enabled: "enabled",
-          compact: true,
-        }),
+      const pending = modal.track(
+        archiveSessionWithUndo(harness.host, { ...sessionRow(1), hasAutomation }, harness.scope),
       );
-      expect(document.body.textContent).toContain('Archiving "Batch 1" pauses its automations.');
-      expect(document.body.textContent).not.toContain("openclaw automations");
-      expect(document.body.textContent).toContain("Nightly digest (job-1)");
-      expect(actions.textContent).toContain("Archive anyway");
-      answerConfirmDialog(actions, decision);
       await pending;
-      if (decision === "confirm") {
-        await endArchiveUndoWindow(harness);
-      }
-      expect(harness.patch).toHaveBeenCalledTimes(decision === "confirm" ? 1 : 0);
-      expect(info.mock.calls.map(([message]) => message)).toEqual([
-        "[session-automation-confirm] archive shown",
-        decision === "confirm"
-          ? "[session-automation-confirm] archive confirmed"
-          : "[session-automation-confirm] archive cancelled",
-      ]);
+      await endArchiveUndoWindow(harness);
+      expect(harness.patch).toHaveBeenCalledOnce();
+      expect(cronList).not.toHaveBeenCalled();
+      expect(document.body.querySelector("openclaw-modal-dialog")).toBeNull();
     },
   );
 
-  it("keeps the no-dialog archive for conversations without automations", async () => {
-    const harness = createHarness();
-    const cronList = withCronList(harness, async () => cronPage());
-    await archiveSessionWithUndo(harness.host, sessionRow(1), harness.scope);
-    await endArchiveUndoWindow(harness);
-    expect(cronList).not.toHaveBeenCalled();
-    expect(harness.patch).toHaveBeenCalledOnce();
-    expect(document.body.querySelector("openclaw-modal-dialog")).toBeNull();
-  });
-
-  it("still warns when automation names cannot be read", async () => {
+  it("preserves the nested-session choice without suggesting that automations pause", async () => {
     const modal = createModalDialogTestFixture();
     onTestFinished(() => modal.cleanup());
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    onTestFinished(() => info.mockRestore());
-    const harness = createHarness();
-    withCronList(harness, async () => {
-      throw new Error("cron unavailable");
-    });
-    const pending = modal.track(
-      archiveSessionWithUndo(
-        harness.host,
-        { ...sessionRow(1), hasAutomation: true },
-        harness.scope,
-      ),
-    );
-    const actions = await waitForConfirmDialogActions();
-    expect(document.body.textContent).toContain(t("sessionsView.automationPauseUnlisted"));
-    answerConfirmDialog(actions, "cancel");
-    await pending;
-    expect(harness.patch).not.toHaveBeenCalled();
-  });
-
-  it("adds bound automations to the nested archive choice", async () => {
-    const modal = createModalDialogTestFixture();
-    onTestFinished(() => modal.cleanup());
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    onTestFinished(() => info.mockRestore());
     const harness = createHarness();
     const root = gatewayRow(0);
     const child = gatewayRow(1, { parentSessionKey: root.key, hasAutomation: true });
@@ -457,12 +401,9 @@ describe("archive confirmation for bound automations", () => {
       ),
     );
     const actions = await waitForConfirmDialogActions();
-    expect(cronList).toHaveBeenCalledOnce();
-    expect(cronList).toHaveBeenCalledWith(expect.objectContaining({ sessionKey: child.key }));
-    expect(document.body.textContent).toContain(
-      "Automations are bound to 1 of these conversations.",
-    );
-    expect(document.body.textContent).toContain("Child report (job-2)");
+    expect(cronList).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain("pauses its automations");
+    expect(document.body.textContent).not.toContain("Child report (job-2)");
     expect(actions.textContent).toContain("Archive all (2)");
     answerConfirmDialog(actions, "cancel");
     await expect(pending).resolves.toBeNull();

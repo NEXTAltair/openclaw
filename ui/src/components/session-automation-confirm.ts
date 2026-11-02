@@ -18,9 +18,9 @@ type SessionAutomationTarget = {
   hasAutomation?: boolean;
 };
 
-/** Confirmation copy for enabled automations that an archive or delete pauses. */
+/** Confirmation copy for enabled automations affected by deletion. */
 export type BoundAutomationNotice = {
-  action: "archive" | "delete";
+  action: "delete";
   message: string;
   details?: string;
   automationCount: number;
@@ -40,8 +40,8 @@ export type BoundAutomationRequest = {
 };
 
 /**
- * Runs an archive or delete confirmation with the pause warning when any
- * target row reports an enabled bound automation. Without one, `present`
+ * Adds the pause warning only for deletion of a row with a bound automation.
+ * Archiving does not pause jobs and keeps its ordinary confirmation. `present`
  * receives null synchronously, so existing confirmations keep their timing.
  * Shown, confirmed and cancelled warnings are recorded for visibility.
  */
@@ -50,7 +50,7 @@ export function confirmWithBoundAutomations<T>(
   present: (notice: BoundAutomationNotice | null) => Promise<T>,
   confirmed: (result: T) => boolean,
 ): Promise<T> {
-  if (!hasBoundAutomation(request.sessions)) {
+  if (request.action === "archive" || !hasBoundAutomation(request.sessions)) {
     return present(null);
   }
   return readBoundAutomationNotice(request).then(async (notice) => {
@@ -70,18 +70,12 @@ async function readBoundAutomationNotice(
   const { jobs, total } = await listBoundAutomations(params.gateway.snapshot, targets, params);
   const single = params.sessions.length === 1 ? params.sessions[0] : undefined;
   const message = t(
-    params.action === "archive"
-      ? single
-        ? "sessionsView.automationPauseArchiveOne"
-        : "sessionsView.automationPauseArchiveOther"
-      : single
-        ? "sessionsView.automationPauseDeleteOne"
-        : "sessionsView.automationPauseDeleteOther",
+    single ? "sessionsView.automationPauseDeleteOne" : "sessionsView.automationPauseDeleteOther",
     { session: single?.label ?? single?.key ?? "", count: String(targets.length) },
   );
   if (jobs.length === 0) {
     return {
-      action: params.action,
+      action: "delete",
       message: message + "\n\n" + t("sessionsView.automationPauseUnlisted"),
       automationCount: targets.length,
     };
@@ -90,7 +84,7 @@ async function readBoundAutomationNotice(
   if (total > lines.length) {
     lines.push(t("sessionsView.automationPauseMore", { count: String(total - lines.length) }));
   }
-  return { action: params.action, message, details: lines.join("\n"), automationCount: total };
+  return { action: "delete", message, details: lines.join("\n"), automationCount: total };
 }
 
 // Reads each flagged conversation's enabled bound jobs, deduplicated by job ID.
@@ -148,7 +142,7 @@ async function listBoundAutomations(
 }
 
 /**
- * Adds the pause warning to an archive or delete confirmation. The warning is
+ * Adds the pause warning to a delete confirmation. The warning is
  * never skippable, so an opted-out delete confirmation still appears for it.
  */
 export function withBoundAutomationNotice<T extends ConfirmDialogOptions>(
@@ -160,9 +154,7 @@ export function withBoundAutomationNotice<T extends ConfirmDialogOptions>(
     skipPreference: undefined,
     message: options.message ? options.message + "\n\n" + notice.message : notice.message,
     ...(notice.details ? { details: notice.details } : {}),
-    confirmLabel: t(
-      notice.action === "archive" ? "sessionsView.archiveAnyway" : "sessionsView.deleteAnyway",
-    ),
+    confirmLabel: t("sessionsView.deleteAnyway"),
   };
 }
 

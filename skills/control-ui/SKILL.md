@@ -125,6 +125,21 @@ Use two layers of proof:
    dashboard panel, then inspect or screenshot the widget frame. Exercise any
    important controls.
 
+For archive/delete advice involving automations, compare the displayed confirmation,
+the served Gateway/UI build, and the affected job state. A pre-archive successful run
+or a source-only fix does not prove post-archive execution. Use an authorized disposable
+probe when available; otherwise state that lifecycle verification is incomplete.
+
+For UI-only fixes in a source checkout, use its documented `pnpm ui:build` path.
+The UI builder stages and publishes `dist/control-ui` under checkout artifact
+ownership; a full host rebuild or Gateway restart is not needed for browser assets.
+Verify the HTTP-served asset hash against the new build and exercise the affected
+browser flow. Browser tests with a mock Gateway prove the UI boundary, not a live
+automation's post-archive execution or delivery. Check automation delivery separately:
+an enabled job with a successful run can still fail to report into an archived source
+conversation. Restore an unfinished conversation when appropriate; this repairs that
+destination, not the general archived-destination contract.
+
 An HTTP 200 for the shell or widget route is transport proof, not visual proof.
 Do not claim the dashboard works until the sandboxed frame renders.
 For widgets that fetch live data, exercise that fetch from the rendered frame.

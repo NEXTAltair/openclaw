@@ -274,15 +274,11 @@ const enSessionOrganization = {
     archiveSessionNestedOffline:
       'Archive only "{session}"? Its directly nested sessions move to the top level. Reconnect to archive the complete subtree.',
     archiveAllSessions: "Archive all ({count})",
-    automationPauseArchiveOne: 'Archiving "{session}" pauses its automations.',
-    automationPauseArchiveOther:
-      "Automations are bound to {count} of these conversations. Archiving a conversation pauses its automations.",
     automationPauseDeleteOne: 'Deleting "{session}" pauses its automations.',
     automationPauseDeleteOther:
       "Automations are bound to {count} of these conversations. Deleting a conversation pauses its automations.",
     automationPauseUnlisted: "Automation names are unavailable right now.",
     automationPauseMore: "+{count} more",
-    archiveAnyway: "Archive anyway",
     deleteAnyway: "Delete anyway",
     archiveTreeRootRequired:
       "Archive the parent session and its nested sessions, not an individual subagent session.",

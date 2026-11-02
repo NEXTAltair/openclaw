@@ -2,14 +2,12 @@ import { expect, it } from "vitest";
 import type { CronJob } from "../api/types.ts";
 import { createControlUiSessionRow as sessionRow } from "../test-helpers/control-ui-session-fixtures.ts";
 import { cronListResponseFixture } from "../test-helpers/cron.ts";
-import { expectRequestCountStable } from "./chat-flow.test-support.ts";
 import { createControlUiE2eContextOptions } from "./control-ui-e2e-suite.test-support.ts";
 import * as ui from "./session-management.compact.test-support.ts";
 import {
   captureUiProof,
   controlUiSessionUrl,
   createSessionManagementE2eSuite,
-  waitForConfirmModal,
 } from "./session-management.test-support.ts";
 
 const suite = createSessionManagementE2eSuite();
@@ -29,7 +27,7 @@ const job: CronJob = {
 
 suite.define(() => {
   it.each(["sidebar", "list"] as const)(
-    "confirms before archiving a conversation with automations from the %s",
+    "archives a conversation with automations without a pause warning from the %s",
     (surface) =>
       suite.withPage(createControlUiE2eContextOptions(), async ({ page }) => {
         const main = sessionRow("agent:main:main", "Main", 1);
@@ -63,28 +61,21 @@ suite.define(() => {
         await ui.visible(row);
 
         await ui.archiveSession(page, row, surface);
-        let dialog = await waitForConfirmModal(page);
-        await dialog.getByText("Nightly digest (nightly-digest)").waitFor();
-        await dialog
-          .getByText('Archiving "Nightly owner" pauses its automations.', { exact: false })
-          .waitFor();
-        await captureUiProof(suite, page, "archive-automation-confirm-" + surface + ".png");
-        expect((await gateway.getRequests("cron.list")).map(({ params }) => params)).toContainEqual(
-          expect.objectContaining({ sessionKey: target.key, enabled: "enabled", compact: true }),
-        );
-        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-        await dialog.waitFor({ state: "detached" });
-        await expectRequestCountStable(gateway, "sessions.patch", 0);
-
-        await ui.archiveSession(page, row, surface);
-        dialog = await waitForConfirmModal(page);
-        await dialog.getByRole("button", { name: "Archive anyway", exact: true }).click();
         const patch = await ui.sessionPatch(gateway, target.key, { archived: true });
         expect(patch.params).toMatchObject({
           key: target.key,
           expectedSessionId: target.sessionId,
           archived: true,
         });
+        expect(await page.locator("openclaw-modal-dialog dialog[open]").count()).toBe(0);
+        expect(
+          (await gateway.getRequests("cron.list")).filter(
+            ({ params }) =>
+              (params as { sessionKey?: string; compact?: boolean } | undefined)?.sessionKey ===
+                target.key && (params as { compact?: boolean } | undefined)?.compact === true,
+          ),
+        ).toEqual([]);
+        await captureUiProof(suite, page, "archive-without-automation-warning-" + surface + ".png");
       }),
   );
 
