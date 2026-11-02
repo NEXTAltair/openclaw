@@ -139,6 +139,36 @@ describe("Slack durable ingress", () => {
     resetSystemEventsForTest();
   });
 
+  it("releases a routed event when dispatch returns after account abort without adoption", async () => {
+    await withQueue(async (queue) => {
+      const abort = new AbortController();
+      const routed = createDeferred<void>();
+      let lifecycle: ReturnType<typeof resolveSlackIngressTurnLifecycle>;
+      const { app, ingress, receive } = attachBoltIngress(queue, { abortSignal: abort.signal });
+      vi.spyOn(app, "processEvent").mockImplementation(async (event: ReceiverEvent) => {
+        lifecycle = resolveSlackIngressTurnLifecycle(event.customProperties);
+        await lifecycle?.onSessionRouted?.("agent:main:slack:shared-session");
+        routed.resolve();
+        await new Promise<void>((resolve) => {
+          lifecycle!.abortSignal.addEventListener("abort", () => resolve(), { once: true });
+        });
+        // The reply dispatcher reports an aborted/skipped turn by returning normally.
+      });
+      ingress.start();
+      try {
+        await receive(createReceiverEvent("Ev-aborted-routed"));
+        await routed.promise;
+        abort.abort();
+        await vi.waitFor(async () => expect(await queue.listClaims()).toEqual([]));
+        expect((await queue.listPending()).map((entry) => entry.id)).toEqual(["Ev-aborted-routed"]);
+      } finally {
+        abort.abort();
+        await lifecycle?.onCancelled?.();
+        await ingress.stop();
+      }
+    });
+  });
+
   it("does not acknowledge when the durable append fails", async () => {
     await withQueue(async (queue) => {
       const enqueue = vi.fn(async () => {

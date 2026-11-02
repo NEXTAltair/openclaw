@@ -407,6 +407,13 @@ export function createSlackDurableIngress(
             },
           });
         }
+        if (lifecycle.abortSignal.aborted) {
+          // A skipped reply can return normally after account shutdown. Its
+          // unadopted routed claim must reopen before the old monitor retires.
+          await lifecycle.onCancelled?.();
+          settleTurn();
+          return;
+        }
         if (adoptOnCompletion) {
           await routedLifecycle.onAdopted();
         }

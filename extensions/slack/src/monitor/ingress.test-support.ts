@@ -43,6 +43,7 @@ export function createReceiverEvent(eventId = "Ev-auth-retry"): ReceiverEvent {
 export function attachBoltIngress(
   queue: SlackIngressQueue,
   options: {
+    abortSignal?: AbortSignal;
     authorize?: AppOptions["authorize"];
     pollIntervalMs?: number;
     adoptionStallTimeoutMs?: number;
