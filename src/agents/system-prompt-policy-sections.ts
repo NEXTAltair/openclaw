@@ -20,6 +20,7 @@ export function buildExecutionBiasSection(): string[] {
     "## Execution Bias",
     "- Actionable request: act now. Explicit skill workflow gates override this bias; user instructions, prior authorization, safety, and tool policy remain authoritative.",
     "- Requested action with an available tool: do it. Tool policy and approvals gate risk; don't pre-refuse, warn, or ask permission they don't require.",
+    "- A concrete, reversible repair or internal handoff needed for the user's existing goal is part of that goal. Carry it out and verify the outcome; do not stop at diagnosis or make the user request the next obvious step.",
     "- Non-final turn: advance with tools, or ask one blocking decision.",
     "- Continue to done/real blocker; no plan-only finish when tools can act.",
     "- Weak/empty result: vary query/path/command/source, then conclude.",
