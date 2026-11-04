@@ -114,6 +114,7 @@ export const {
   textToSpeechTelephony,
 } = await import("./runtime-api.js");
 export const { prepareTtsRequest } = await import("./tts-request.js");
+export const { prepareSpeechPromptContext } = await import("./tts-prompt-context.js");
 export const { maybeApplyTtsToPayloadCore } = await import("./tts-payload.js");
 export const { textToSpeechCore } = await import("./tts-synthesis.js");
 

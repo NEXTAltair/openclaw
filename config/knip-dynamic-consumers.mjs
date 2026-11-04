@@ -649,6 +649,7 @@ export function compileDynamicConsumerEdges(source, filePath, scriptEntrypoints 
     ["extensions/codex/src/session-catalog-control.ts", "./app-server/shared-client.js"],
     ["src/plugins/runtime/index.ts", "../../tts/tts.js"],
     ["src/plugins/runtime/index.ts", "../../tts/tts-request.js"],
+    ["src/plugins/runtime/index.ts", "../../tts/tts-prompt-context.js"],
   ];
   const lazyRuntimeEdges = new Map();
   for (const [consumerPath, targetSpecifier] of lazyRuntimeConsumers) {

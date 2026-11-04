@@ -368,6 +368,8 @@ export type PluginRuntimeCore = {
   tts: {
     /** Await machine preference preparation before rendering; optional for older custom runtimes. */
     buildSystemPromptHintAsync?: TtsRuntimeApi["buildTtsSystemPromptHintAsync"];
+    /** Sanitized, read-only effective primary speech selection for provider-aware prompts. */
+    prepareSpeechPromptContext: typeof import("../../tts/tts-prompt-context.js").prepareSpeechPromptContext;
     prepareTtsRequest: typeof import("../../tts/tts-request.js").prepareTtsRequest;
     textToSpeech: typeof import("../../tts/tts.js").textToSpeech;
     textToSpeechStream: TtsRuntimeApi["textToSpeechStream"];

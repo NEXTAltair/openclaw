@@ -43,6 +43,9 @@ export { enqueueSessionEventForHost };
 
 const loadTtsRuntime = createLazyRuntimeModule(() => import("../../tts/tts.js"));
 const loadTtsRequestRuntime = createLazyRuntimeModule(() => import("../../tts/tts-request.js"));
+const loadTtsPromptContextRuntime = createLazyRuntimeModule(
+  () => import("../../tts/tts-prompt-context.js"),
+);
 const loadMediaUnderstandingRuntime = createLazyRuntimeModule(
   () => import("../../media-understanding/runtime.js"),
 );
@@ -84,8 +87,10 @@ function createRuntimeGateway(): PluginRuntime["gateway"] {
 function createRuntimeTts(): PluginRuntime["tts"] {
   const bindTtsRuntime = createLazyRuntimeMethodBinder(loadTtsRuntime);
   const bindTtsRequestRuntime = createLazyRuntimeMethodBinder(loadTtsRequestRuntime);
+  const bindPromptContext = createLazyRuntimeMethodBinder(loadTtsPromptContextRuntime);
   return {
     buildSystemPromptHintAsync: bindTtsRuntime((runtime) => runtime.buildTtsSystemPromptHintAsync),
+    prepareSpeechPromptContext: bindPromptContext((runtime) => runtime.prepareSpeechPromptContext),
     prepareTtsRequest: bindTtsRequestRuntime((runtime) => runtime.prepareTtsRequest),
     textToSpeech: bindTtsRuntime((runtime) => runtime.textToSpeech),
     textToSpeechStream: bindTtsRuntime((runtime) => runtime.textToSpeechStream),
