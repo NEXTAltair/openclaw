@@ -14,7 +14,11 @@ import { annotateInterSessionPromptText } from "../../sessions/input-provenance.
 import { settleCurrentReadPreparations } from "../../shared/current-read-authority.js";
 import { prepareTtsPreferences } from "../../tts/tts-preferences.js";
 import { buildCliSessionDriftNote } from "../cli-session-drift.js";
-import { buildTemporalContextText } from "../date-time.js";
+import {
+  buildTemporalContextText,
+  isRealHumanUserMessage,
+  resolveTrustedMessageTimestampMs,
+} from "../date-time.js";
 import type { ResolvedPromptBuildHookResult } from "../embedded-agent-runner/run/attempt-prompt-helpers.js";
 import { composeSystemPromptWithHookContext } from "../embedded-agent-runner/run/attempt-thread-helpers.js";
 import {
@@ -96,7 +100,15 @@ export async function prepareCliTurnPromptContext(
     thinkLevel?: ThinkLevel;
     nativeDelegationTools?: readonly string[];
     requesterProfileId?: string;
-    configuredTimezone?: string;
+    temporalContext?: {
+      run: Pick<RunCliAgentParams, "config" | "trigger"> & {
+        userTurnTranscriptRecorder?: Pick<
+          NonNullable<RunCliAgentParams["userTurnTranscriptRecorder"]>,
+          "message"
+        >;
+      };
+      history?: { previousUserTimestampMs?: number };
+    };
     prompt: string;
     privateContext: boolean;
     backendId: string;
@@ -129,6 +141,13 @@ export async function prepareCliTurnPromptContext(
     .join("\n\n");
   try {
     const { resolveSystemPromptUsage } = await import("./helpers.js");
+    const temporal = params.temporalContext;
+    const currentUserMessage = temporal?.run.userTurnTranscriptRecorder?.message;
+    const currentUserTimestampMs =
+      (temporal?.run.trigger === undefined || temporal.run.trigger === "user") &&
+      isRealHumanUserMessage(currentUserMessage)
+        ? resolveTrustedMessageTimestampMs(currentUserMessage)
+        : undefined;
     const [mediaTaskContext] = await settleCurrentReadPreparations([
       buildMediaTaskRuntimeContext({
         capabilityToolNames: params.capabilityToolNames,
@@ -153,8 +172,10 @@ export async function prepareCliTurnPromptContext(
       }).join("\n"),
       labelRuntimeContextText(
         buildTemporalContextText({
-          configuredTimezone: params.configuredTimezone,
+          configuredTimezone: temporal?.run.config?.agents?.defaults?.userTimezone,
           sessionStatusAvailable: params.capabilityToolNames.has("session_status"),
+          currentUserTimestampMs,
+          previousUserTimestampMs: temporal?.history?.previousUserTimestampMs,
         }),
       ),
       mediaTaskMessage ? labelRuntimeContextText(mediaTaskMessage.content) : undefined,

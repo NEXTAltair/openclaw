@@ -41,15 +41,17 @@ it.each([false, true])("refreshes date and timezone; session_status=%s", async (
     capabilityToolNames: new Set(status ? ["session_status"] : []),
   };
   const hint = status ? "\nFor the exact current time, use `session_status`." : "";
-  for (const [time, zone, date] of [
-    ["2026-09-01T06:59:59Z", "America/Los_Angeles", "2026-08-31"],
-    ["2026-09-01T07:00:00Z", "America/Los_Angeles", "2026-09-01"],
-    ["2026-09-01T07:00:00Z", "Pacific/Honolulu", "2026-08-31"],
+  for (const [time, zone, date, clockTime] of [
+    ["2026-09-01T06:59:59Z", "America/Los_Angeles", "2026-08-31", "Mon 2026-08-31 23:59:59 PDT"],
+    ["2026-09-01T07:00:00Z", "America/Los_Angeles", "2026-09-01", "Tue 2026-09-01 00:00:00 PDT"],
+    ["2026-09-01T07:00:00Z", "Pacific/Honolulu", "2026-08-31", "Mon 2026-08-31 21:00:00 HST"],
   ] as const) {
     clock.mockReturnValue(Date.parse(time));
     cfg.agents.defaults.userTimezone = zone;
     await expectContext(input, [
-      fact("## Temporal Context\nCurrent date: " + date + "\nTime zone: " + zone + hint),
+      fact(
+        `## Temporal Context\nCurrent date: ${date}\nTime zone: ${zone}\nCurrent time: ${clockTime} (observation clock)\nCurrent user message: unavailable (not a human turn or missing/invalid timestamp)\nPrevious user message: unavailable in available history${hint}`,
+      ),
     ]);
   }
 });

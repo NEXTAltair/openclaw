@@ -30,6 +30,11 @@ import {
   type AdmittedRunContext,
 } from "../admitted-run-context.js";
 import { projectPersistedSenderContext } from "../embedded-agent-runner/run/attempt-history.js";
+import {
+  isRealHumanUserMessage,
+  resolvePreviousRealUserTimestampMs,
+  resolveTrustedMessageTimestampMs,
+} from "../date-time.js";
 import { estimateToolResultTextChars } from "../embedded-agent-runner/tool-result-text-budget.js";
 import { MAX_AGENT_HOOK_HISTORY_MESSAGES } from "../harness/hook-history.js";
 import { isOpenClawRuntimeContextCustomMessage } from "../internal-runtime-context.js";
@@ -710,6 +715,18 @@ export async function loadCliSessionPromptContext(
       transcriptCursor,
     };
   }
+  const currentUserMessage = params.userTurnTranscriptRecorder?.message;
+  const currentUserTimestampMs = isRealHumanUserMessage(currentUserMessage)
+    ? resolveTrustedMessageTimestampMs(currentUserMessage)
+    : undefined;
+  // Conversation time uses original event metadata, not reseed persistence time.
+  const previousUserTimestampMs =
+    currentUserTimestampMs === undefined
+      ? undefined
+      : resolvePreviousRealUserTimestampMs(
+          buildSessionContext(entries).messages,
+          currentUserTimestampMs,
+        );
   // This freshly loaded branch is reseed-owned; use persistence rather than provider timestamps.
   for (const entry of entries) {
     if (entry.type === "message") {
@@ -732,6 +749,7 @@ export async function loadCliSessionPromptContext(
       sessionGapContext,
       resumeContext,
       transcriptCursor,
+      previousUserTimestampMs,
     };
   }
   const history = projectPersistedSenderContext(historyMessages).filter(
@@ -754,5 +772,12 @@ export async function loadCliSessionPromptContext(
           isError: message.role === "toolResult" ? message.isError : undefined,
         };
   });
-  return { reseedMessages, durableContext, sessionGapContext, resumeContext, transcriptCursor };
+  return {
+    reseedMessages,
+    durableContext,
+    sessionGapContext,
+    resumeContext,
+    transcriptCursor,
+    previousUserTimestampMs,
+  };
 }

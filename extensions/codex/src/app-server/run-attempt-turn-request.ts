@@ -178,6 +178,7 @@ export async function prepareCodexAttemptTurnRequest(
       appServer: turnAppServer,
       promptText: turnState.codexTurnPromptText,
       historyProvenancePrefix: nativeHistoryProvenancePrefix,
+      conversationHistory: context.historyState.messages,
       contextImageGroups: prompt.contextImageGroups,
       explicitSkillInputs,
       sandboxPolicy: resourceState.codexSandboxPolicy,
