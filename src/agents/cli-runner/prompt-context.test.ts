@@ -120,7 +120,7 @@ it("lets a whole-system hook replacement remove ordinary Claude Runtime facts", 
   expect(turn.promptContext?.appendContext).not.toContain(runtimeFacts);
 });
 
-it.each([undefined, "user", "heartbeat"] as const)(
+it.each([undefined, "user", "cron"] as const)(
   "appends only human event metadata without rewriting native prompts: %s",
   async (trigger) => {
     vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-21T00:15:00Z"));
@@ -143,7 +143,7 @@ it.each([undefined, "user", "heartbeat"] as const)(
     expect(turn.prompt).toBe("Hello");
     expect(turn.systemPrompt).toBe(stable);
     expect(turn.promptContext?.appendContext).not.toContain("1999");
-    if (trigger === "heartbeat") {
+    if (trigger === "cron") {
       expect(turn.promptContext?.appendContext).toContain("Current user message: unavailable");
       expect(turn.promptContext?.appendContext).not.toContain(
         "Elapsed since previous user message:",

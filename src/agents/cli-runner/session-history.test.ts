@@ -12,6 +12,7 @@ import {
   resolveSessionTranscriptDatabasePath,
   upsertSessionEntryCore,
 } from "../../config/sessions/session-accessor.js";
+import { createUserTurnTranscriptRecorder } from "../../sessions/user-turn-transcript.js";
 import type { PersistedUserTurnMessage } from "../../sessions/user-turn-transcript.types.js";
 import { withEnvAsync } from "../../test-utils/env.js";
 import { cleanupSessionStateForTest } from "../../test-utils/session-state-cleanup.js";
@@ -960,16 +961,18 @@ describe("buildCliSessionHistoryPrompt", () => {
 it("keeps original event time separate from CLI reseed persistence time", async () => {
   const manager = SessionManager.inMemory();
   await manager.appendMessageAsync({ role: "user", content: "prior human", timestamp: 1000 });
-  await manager.appendMessageAsync({
-    role: "user",
-    content: "internal wake",
-    timestamp: 2000,
-    provenance: { kind: "internal_system" },
-  });
+  await manager.appendMessageAsync(
+    userMessage("internal wake", 2000, { provenance: { kind: "internal_system" } }),
+  );
   const before = structuredClone(manager.getEntries());
   const result = await loadCliSessionPromptContext({
     sessionManager: manager,
-    userTurnTranscriptRecorder: { message: makeUserMessage("current", 3000) },
+    userTurnTranscriptRecorder: createUserTurnTranscriptRecorder({
+      input: { text: "current", timestamp: 3000 },
+      target: () => {
+        throw new Error("read-only temporal fixture must not persist");
+      },
+    }),
   });
   expect(result.previousUserTimestampMs).toBe(1000);
   expect(manager.getEntries()).toEqual(before);

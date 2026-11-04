@@ -50,7 +50,6 @@ export async function prepareSpeechPromptContext(params: {
         provider: candidate.provider,
         voiceModel: candidate.voiceModel,
         target: "audio-file",
-        providerRegistry: await setup.prepareProviderRegistry(),
       });
       if (ready.kind !== "ready") {
         return base;

@@ -132,6 +132,19 @@ export function resolvePreviousRealUserTimestampMs(
   return undefined;
 }
 
+/** Original-metadata time of the human turn before an admitted human turn. */
+export function resolvePreviousHumanTurnTimestampMs(
+  currentMessage: unknown,
+  history: () => readonly unknown[],
+): number | undefined {
+  const currentUserTimestampMs = isRealHumanUserMessage(currentMessage)
+    ? resolveTrustedMessageTimestampMs(currentMessage)
+    : undefined;
+  return currentUserTimestampMs === undefined
+    ? undefined
+    : resolvePreviousRealUserTimestampMs(history(), currentUserTimestampMs);
+}
+
 function formatTrustedTemporalTimestamp(timestampMs: number, timeZone: string): string | undefined {
   return formatZonedTimestamp(new Date(timestampMs), {
     timeZone,
