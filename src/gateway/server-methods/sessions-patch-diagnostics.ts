@@ -23,7 +23,6 @@ const PHASES = [
   "lifecycleFinalize",
   "cleanup",
   "effects",
-  "cronEffects",
   "response",
 ] as const;
 type SessionPatchPhase = (typeof PHASES)[number];

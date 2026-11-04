@@ -699,8 +699,6 @@ export async function executeSessionPatchMutations(params: {
     cfg,
     context: params.context,
     callerScopes,
-    callerCanManageCron: callerIsAdmin,
-    diagnostics: params.diagnostics,
     targets: activePrepared.flatMap((target) => {
       const outcome = outcomes[target.index];
       return outcome?.ok && outcome.applied

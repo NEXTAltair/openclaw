@@ -790,6 +790,7 @@ describe("runCronIsolatedAgentTurn auth profile propagation (#20624, #90991)", (
           previousSessionId: undefined,
           resetBoundaryPending: undefined,
           initialSessionEntry: sessionEntry,
+          restoresArchivedSession: false,
         },
         sessionKey,
         isNewSession: false,

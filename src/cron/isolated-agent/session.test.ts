@@ -32,6 +32,7 @@ function resolveWithStoredEntry(params?: {
   fresh?: boolean;
   exactRunSession?: boolean;
   inferenceCaptured?: boolean;
+  restoreArchived?: boolean;
 }) {
   const sessionKey = params?.sessionKey ?? "webhook:stable-key";
   const sourceSessionKey = params?.sourceSessionKey;
@@ -56,6 +57,7 @@ function resolveWithStoredEntry(params?: {
     forceNew: params?.forceNew,
     exactRunSession: params?.exactRunSession,
     inferenceCaptured: params?.inferenceCaptured,
+    restoreArchived: params?.restoreArchived,
     store,
     lifecycleTimestamps: {},
   });
@@ -77,6 +79,37 @@ const boundContext = {
   worktree: { id: "worktree-1", branch: "task", repoRoot: "/repo" },
   projectId: "project",
 } satisfies Partial<SessionEntry>;
+
+it.each([false, true])(
+  "restores an archived automation execution session (detached=$0)",
+  (forceNew) => {
+    const result = resolveWithStoredEntry({
+      sessionKey: "agent:main:cron:archived-job",
+      forceNew,
+      restoreArchived: true,
+      entry: {
+        sessionId: "archived-job-session",
+        archivedAt: NOW_MS,
+        archivedBy: { type: "human", id: "operator" },
+        archiveReason: "manual",
+      },
+    });
+    expect(result.restoresArchivedSession).toBe(true);
+    expect(result.sessionEntry.archivedAt).toBeUndefined();
+    expect(result.sessionEntry.archivedBy).toBeUndefined();
+    expect(result.sessionEntry.archiveReason).toBeUndefined();
+    expect(result.sessionEntry.sessionId === "archived-job-session").toBe(!forceNew);
+  },
+);
+
+it("does not restore an initializing archived automation session", () => {
+  expect(() =>
+    resolveWithStoredEntry({
+      restoreArchived: true,
+      entry: { archivedAt: NOW_MS, initializationPending: true },
+    }),
+  ).toThrow("is still initializing");
+});
 
 it.each([
   { name: "new session", existing: false, keeps: false },

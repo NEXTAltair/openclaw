@@ -5,7 +5,6 @@ import type { LiveSessionModelSelection } from "../../agents/live-model-switch.j
 import { applyModelRuntimeDirective } from "../../auto-reply/reply/directive-handling.model-runtime.js";
 import type { SessionEntry } from "../../config/sessions.js";
 import { resolveSessionAuthProfileOverrideSource } from "../../config/sessions/auth-profile-override-provenance.js";
-import { resolveSessionWorkStartError } from "../../config/sessions/lifecycle.js";
 import type { SessionResetBoundaryWrite } from "../../config/sessions/session-accessor.lifecycle-types.js";
 import type { SessionEntryPatchOperation } from "../../config/sessions/session-entry-patch-operation.js";
 import {
@@ -15,6 +14,7 @@ import {
 import type { SessionCreatedActor } from "../../config/sessions/session-entry-provenance.js";
 import { mergeSessionSnapshotChanges } from "../../config/sessions/session-snapshot-merge.js";
 import { readSessionTranscriptWatermarkAsync } from "../../config/sessions/session-transcript-watermark.js";
+import { resolveSessionWorkStartBlock } from "../../config/sessions/session-work-start.js";
 import { isSessionWorkStartInvalidatedError } from "../../config/sessions/work-start-error.js";
 import { withSessionTurn } from "../../sessions/session-controller.admission.js";
 import {
@@ -152,9 +152,9 @@ export async function beginCronPreparationEffect(params: {
       if (changed) {
         throw new CronSessionLifecycleClaimError(agentSessionKey);
       }
-      const archivedSessionError = resolveSessionWorkStartError(agentSessionKey, currentEntry);
-      if (archivedSessionError) {
-        throw new CronSessionLifecycleClaimError(agentSessionKey, archivedSessionError);
+      const block = resolveSessionWorkStartBlock(agentSessionKey, currentEntry);
+      if (block && !(block.reason === "archived" && cronSession.restoresArchivedSession)) {
+        throw new CronSessionLifecycleClaimError(agentSessionKey, block.message);
       }
     },
   });

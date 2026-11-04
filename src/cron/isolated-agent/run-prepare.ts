@@ -240,6 +240,7 @@ async function resolveCronRunPreparation(params: CronRunPreparationParams) {
       nowMs: now,
       forceNew: usesDetachedRunSession,
       exactRunSession: usesExactRunSession,
+      restoreArchived: true,
       hookExternalContentSource,
       inferenceCaptured: Boolean(input.job.inferenceBinding?.runtime),
     });

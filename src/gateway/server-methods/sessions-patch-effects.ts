@@ -2,15 +2,11 @@ import type { SessionsPatchParams } from "../../../packages/gateway-protocol/src
 import type { SessionEntry } from "../../config/sessions.js";
 import type { SessionEntryCommitContext } from "../../config/sessions/session-accessor.types.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
-import { disableCronJobsBoundToSessions } from "../../cron/job-session-bindings.js";
-import { formatErrorMessage } from "../../infra/errors.js";
 import { triggerSessionPatchHook } from "../session-patch-hooks.js";
 import { emitSessionsChanged } from "./session-change-event.js";
 import { registerCommittedSessionCategory } from "./session-create-category.js";
-import type { SessionPatchDiagnostics } from "./sessions-patch-diagnostics.js";
 import { persistSessionPatchModelSelection } from "./sessions-patch-model-selection.js";
 import type { GroupAdmissionResult } from "./sessions-patch-types.js";
-import { sessionLog } from "./sessions-shared.js";
 import type { GatewayRequestContext } from "./types.js";
 
 /** Publish committed patch effects even when active-runtime application later reports an error. */
@@ -18,8 +14,6 @@ export async function publishSessionPatchEffects(params: {
   cfg: OpenClawConfig;
   context: GatewayRequestContext;
   callerScopes: readonly string[];
-  callerCanManageCron: boolean;
-  diagnostics?: SessionPatchDiagnostics;
   targets: Array<{
     accessChanged: boolean;
     entry: SessionEntry;
@@ -71,29 +65,7 @@ export async function publishSessionPatchEffects(params: {
     }
   }
 
-  if (params.callerCanManageCron && archivedSessionKeys.size > 0) {
-    const timing = params.diagnostics?.scope("cronEffects");
-    try {
-      const disabledBySession = await disableCronJobsBoundToSessions({
-        cron: params.context.cron,
-        cfg: params.cfg,
-        sessionKeys: [...archivedSessionKeys],
-      });
-      for (const [sessionKey, disabledJobIds] of disabledBySession) {
-        if (disabledJobIds.length > 0) {
-          sessionLog.info(
-            `sessions.patch: disabled cron jobs bound to archived session ${sessionKey}: ${disabledJobIds.join(", ")}`,
-          );
-        }
-      }
-    } catch (error) {
-      sessionLog.warn(
-        `sessions.patch: failed to disable cron jobs for archived sessions: ${formatErrorMessage(error)}`,
-      );
-    } finally {
-      timing?.finish();
-    }
-  }
+  // Archiving organizes conversations; only automation operations change job enablement.
   return archivedSessionKeys.size > 0;
 }
 

@@ -4,10 +4,7 @@ import { clearAllCliSessions } from "../../agents/cli-session.js";
 import { resolveSessionAuthProfileOverrideSource } from "../../config/sessions/auth-profile-override-provenance.js";
 import { hasProviderOwnedSession } from "../../config/sessions/entry-freshness.js";
 import { isInternalSessionEffectsKey } from "../../config/sessions/internal-session-key.js";
-import {
-  type resolveSessionLifecycleTimestamps,
-  resolveSessionWorkStartError,
-} from "../../config/sessions/lifecycle.js";
+import type { resolveSessionLifecycleTimestamps } from "../../config/sessions/lifecycle.js";
 import { resolveSessionStorePathCore } from "../../config/sessions/paths.js";
 import {
   evaluateSessionFreshness,
@@ -21,6 +18,7 @@ import {
 } from "../../config/sessions/session-entry-lineage.js";
 import { preserveCreationStamp } from "../../config/sessions/session-entry-provenance.js";
 import { readSessionEntryInWorker } from "../../config/sessions/session-entry-read-runtime.js";
+import { resolveSessionWorkStartBlock } from "../../config/sessions/session-work-start.js";
 import type { SessionEntry } from "../../config/sessions/types.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { resolveCarriedCronModelSelection } from "./session-carried-model.js";
@@ -149,6 +147,8 @@ type CronSessionParams = {
    * this run's generation for continuation ownership and must be minted per run.
    */
   exactRunSession?: boolean;
+  /** Scheduled work owns enablement independently of conversation archive state. */
+  restoreArchived?: boolean;
   hookExternalContentSource?: SessionEntry["hookExternalContentSource"];
   /**
    * The job recorded its inference runtime and account at creation. A differing source
@@ -199,9 +199,11 @@ export function resolveCronSession(
   const targetEntry = store[params.sessionKey];
   const entry = store[sourceSessionKey || params.sessionKey];
   // Guard the target row even when a differing source seeds its preferences.
-  const sessionWorkStartError = resolveSessionWorkStartError(params.sessionKey, targetEntry);
-  if (sessionWorkStartError) {
-    throw new Error(sessionWorkStartError);
+  const sessionWorkStartBlock = resolveSessionWorkStartBlock(params.sessionKey, targetEntry);
+  const restoresArchivedSession =
+    params.restoreArchived === true && sessionWorkStartBlock?.reason === "archived";
+  if (sessionWorkStartBlock && !restoresArchivedSession) {
+    throw sessionWorkStartBlock;
   }
 
   let sessionId: string;
@@ -291,6 +293,11 @@ export function resolveCronSession(
     sessionEntry.agentHarnessId = undefined;
     sessionEntry.compactionCount = 0;
   }
+  if (restoresArchivedSession) {
+    sessionEntry.archivedAt = undefined;
+    sessionEntry.archivedBy = undefined;
+    sessionEntry.archiveReason = undefined;
+  }
   if (sourceSessionDiffers) {
     delete sessionEntry.usageFamilyKey;
     delete sessionEntry.usageFamilySessionIds;
@@ -317,5 +324,6 @@ export function resolveCronSession(
     previousSessionId,
     resetBoundaryPending,
     initialSessionEntry: targetEntry,
+    restoresArchivedSession,
   };
 }
