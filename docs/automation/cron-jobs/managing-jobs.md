@@ -244,6 +244,7 @@ Model override note:
     webhookSsrfPolicy: {
       allowedHostnames: ["127.0.0.1"], // optional exact exception for a trusted receiver
     },
+    sessionGroup: "Automations", // optional sidebar group for dedicated execution sessions
     sessionRetention: "24h",
   },
 }
@@ -259,6 +260,8 @@ when omitted. Prefer narrow `allowedHostnames` entries over the broad
 Automation jobs, run history, and quarantined malformed jobs live in the shared SQLite state database. Use the CLI or Gateway API to change jobs; `cron.store` is retired.
 
 Set `cron.skipMissedJobs: true` to skip recurring (`cron` and `every`) slots missed while the Gateway was offline. At startup, those jobs advance to their next future occurrence instead of catching up, avoiding stale reminders and unnecessary model calls at the cost of dropping missed work. The default is `false` (catch up); one-shot (`at`) jobs retain their normal catch-up behavior either way.
+
+Set `cron.sessionGroup` to automatically file ungrouped dedicated execution sessions into a sidebar group when they run. Existing group assignments survive subsequent runs, including fresh isolated runs. Current-bound jobs group their execution sessions independently; their source conversations and delivery destinations stay in their existing groups. Main/custom conversation targets are not automatically regrouped. Removing the setting leaves assigned groups intact.
 
 Disable automatic runs: `cron.enabled: false` or `OPENCLAW_SKIP_CRON=1`. These settings do not prevent manual runs.
 

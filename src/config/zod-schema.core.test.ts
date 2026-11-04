@@ -23,6 +23,19 @@ describe("config schema regressions", () => {
     expect(OpenClawSchema.parse({ tools: { media } }).tools?.media).toEqual(media);
   });
 
+  it("validates the optional automation session group", () => {
+    expect(
+      OpenClawSchema.parse({ cron: { sessionGroup: " Automations " } }).cron?.sessionGroup,
+    ).toBe("Automations");
+    expect(
+      OpenClawSchema.parse({ cron: { sessionGroup: "x".repeat(512) } }).cron?.sessionGroup,
+    ).toHaveLength(512);
+    for (const sessionGroup of ["", "   ", "x".repeat(513), 42]) {
+      expect(OpenClawSchema.safeParse({ cron: { sessionGroup } }).success).toBe(false);
+    }
+    expect(OpenClawSchema.parse({ cron: {} }).cron?.sessionGroup).toBeUndefined();
+  });
+
   it("rejects invalid cron.sessionRetention durations", () => {
     expect(() => OpenClawSchema.parse({ cron: { sessionRetention: "abc" } })).toThrow(
       /sessionRetention|duration/i,

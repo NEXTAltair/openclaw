@@ -36,7 +36,7 @@ import type {
   CronToolsAllowExecTarget,
   CronToolsAllowExecTargetRequirement,
 } from "../scheduled-tool-policy.js";
-import { setSessionRuntimeModel } from "./run.runtime.js";
+import { logWarn, setSessionRuntimeModel } from "./run.runtime.js";
 import type { CronLaneWaitCallback } from "./run.types.js";
 import { loadCronSessionEntryLatest, type resolveCronSession } from "./session.js";
 
@@ -214,6 +214,7 @@ export function createPersistCronSessionEntry(params: {
   workspaceDir: string;
   persistSessionEntry: CronSessionRowWriter;
 }): PersistCronSessionEntry {
+  let registeredCategory: string | undefined;
   return async (assertCommitAllowed, liveEntry = params.cronSession.sessionEntry) => {
     const resetBoundaryPending = params.cronSession.resetBoundaryPending !== undefined;
     // Reset admission completes before a CLI turn can own settlement.
@@ -281,6 +282,22 @@ export function createPersistCronSessionEntry(params: {
     });
     params.cronSession.initialSessionEntry = structuredClone(committedEntry);
     params.cronSession.store[params.agentSessionKey] = committedEntry;
+    const category = committedEntry.category;
+    if (isCronSessionKey(params.agentSessionKey) && category && category !== registeredCategory) {
+      // Register only witnessed assignments. Preparation is read-only, and an
+      // empty-group deletion before COMMIT cannot orphan the persisted category.
+      // A racing deletion after COMMIT may leave an empty group, not a lost row.
+      try {
+        const { ensureSessionGroupRegistered } = await import("../../gateway/session-groups.js");
+        await ensureSessionGroupRegistered(category, process.env, assertCommitAllowed);
+        registeredCategory = category;
+      } catch (error) {
+        // Catalog bookkeeping must not abort the automation. Retry on its next write.
+        logWarn(
+          `cron: session category was saved, but group registration failed: ${String(error)}`,
+        );
+      }
+    }
   };
 }
 

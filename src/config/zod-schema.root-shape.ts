@@ -3,6 +3,7 @@ import { normalizeStringifiedOptionalString } from "@openclaw/normalization-core
 import { z } from "zod";
 import { parseDurationMs } from "../cli/parse-duration.js";
 import { isValidCronExpression } from "../cron/expression.js";
+import { SESSION_LABEL_MAX_LENGTH } from "../sessions/session-label.js";
 import { REPOSITORY_BRANCH_PREFIX_PATTERN } from "./repository-branch-prefix.js";
 import { SilentReplyPolicyConfigSchema } from "./zod-schema.agent-defaults.js";
 import { ToolsSchema } from "./zod-schema.agent-runtime.js";
@@ -444,6 +445,8 @@ export const OpenClawSchemaShape = {
        * Default: "24h".
        */
       sessionRetention: z.union([z.string(), z.literal(false)]).optional(),
+      /** Default sidebar group for ungrouped dedicated automation execution sessions. */
+      sessionGroup: z.string().trim().min(1).max(SESSION_LABEL_MAX_LENGTH).optional(),
       /** Default announce destination for jobs that do not name their own route. */
       delivery: CronDefaultDeliveryDestinationSchema.optional(),
       failureAlert: CronFailureAlertRouteSchema.extend({

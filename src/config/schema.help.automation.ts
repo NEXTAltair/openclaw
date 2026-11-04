@@ -124,6 +124,8 @@ export const AUTOMATION_FIELD_HELP: Record<string, string> = {
     "Allows automation webhooks to RFC 2544 benchmark-range IPs (198.18.0.0/15). Use only with trusted fake-IP proxy environments.",
   "cron.webhookSsrfPolicy.allowIpv6UniqueLocalRange":
     "Allows automation webhooks to IPv6 Unique Local Addresses (fc00::/7). Use only with trusted fake-IP proxy environments.",
+  "cron.sessionGroup":
+    "Default sidebar group for ungrouped dedicated automation execution sessions. Existing assignments survive fresh runs; source conversations, main/custom conversation targets, and delivery destinations are not regrouped. Unset disables default assignment without clearing existing groups.",
   "cron.delivery":
     "Gateway-wide default announce destination for automations that name no route of their own (no channel other than `last`, `to`, `threadId`, `accountId`, or owner targeting). It replaces the remembered session route at run time and never applies to `none` or `webhook` delivery. A `cron.creators.<profileId>.delivery` or `cron.agents.<agentId>.delivery` default wins over this one.",
   "cron.delivery.channel":

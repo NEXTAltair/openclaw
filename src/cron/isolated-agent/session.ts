@@ -21,6 +21,7 @@ import { readSessionEntryInWorker } from "../../config/sessions/session-entry-re
 import { resolveSessionWorkStartBlock } from "../../config/sessions/session-work-start.js";
 import type { SessionEntry } from "../../config/sessions/types.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { isCronSessionKey } from "../../sessions/session-key-utils.js";
 import { resolveCarriedCronModelSelection } from "./session-carried-model.js";
 
 const FRESH_CRON_CARRIED_PREFERENCE_FIELDS = [
@@ -269,6 +270,11 @@ export function resolveCronSession(
     // Fresh cron sessions keep user preference/auth overrides but drop resume
     // handles and auto-fallback model overrides that belong to the old run.
     ...baseEntry,
+    // Sidebar placement belongs to the execution row, not its source conversation
+    // or transcript generation. Fresh runs must not erase a manual assignment.
+    category:
+      targetEntry?.category ??
+      (isCronSessionKey(params.sessionKey) ? params.cfg.cron?.sessionGroup : undefined),
     skillLibrarySelections: structuredClone(
       targetEntry?.skillLibrarySelections ??
         params.skillLibrarySelections ??

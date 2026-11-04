@@ -8,6 +8,9 @@ import { runEmbeddedAgent } from "../agents/embedded-agent.js";
 import { SessionManager } from "../agents/sessions/index.js";
 import { setRuntimeConfigSnapshot } from "../config/config.js";
 import { loadSessionEntry } from "../config/sessions/session-accessor.js";
+import { readSessionGroupCatalog } from "../gateway/session-group-catalog.js";
+import * as sessionGroups from "../gateway/session-groups.js";
+import * as logger from "../logger.js";
 import { prepareUserProfileCatalog } from "../state/user-profile-list.js";
 import { ensureProfileForEmail } from "../state/user-profiles.js";
 import { useUserProfileCatalogForTest } from "../test-utils/user-profile-catalog.js";
@@ -48,7 +51,7 @@ async function useRealCronSessionState(): Promise<void> {
       "../config/sessions/session-accessor.js",
     ),
   ]);
-  h.resolveCronSessionMock.mockImplementation(sessionRuntime.resolveCronSession);
+  h.resolveCronSessionMock.mockImplementation(sessionRuntime.prepareCronSession);
   h.loadSessionEntryMock.mockImplementation(sessionRuntime.loadCronSessionEntryLatest);
   h.patchSessionEntryMock.mockImplementation(sessionAccessor.patchSessionEntryCore);
 }
@@ -292,6 +295,84 @@ describe("runCronIsolatedAgentTurn session identity", () => {
     });
 
     expect(lastEmbeddedAgentCall().bootstrapContextMode).toBe("lightweight");
+  });
+
+  it("groups current-bound execution rows across runs without moving the source", async ({
+    home,
+  }) => {
+    await useRealCronSessionState();
+    const boundSessionKey = "agent:main:dashboard:group-source";
+    const storePath = await f.writeSessionStoreEntries(home, {
+      [boundSessionKey]: {
+        sessionId: "source-session",
+        updatedAt: Date.now(),
+        category: "Source conversations",
+      },
+    });
+    const job = sessionJob({ sessionTarget: "current", sessionKey: boundSessionKey });
+    const executionKey = "agent:main:cron:" + job.id;
+    const cfg = f.makeCfg(home, storePath, { cron: { sessionGroup: "Automations" } });
+    const registerGroup = sessionGroups.ensureSessionGroupRegistered;
+    const register = vi
+      .spyOn(sessionGroups, "ensureSessionGroupRegistered")
+      .mockImplementation(async (...args) => {
+        // Registration must follow the durable assignment, not preparation: an
+        // empty-group deletion between those steps could otherwise orphan it.
+        expect(loadSessionEntry({ storePath, sessionKey: executionKey })?.category).toBe(
+          "Automations",
+        );
+        return await registerGroup(...args);
+      });
+    h.runEmbeddedAgentMock.mockImplementation(async (input: AgentRequest) => {
+      for (const key of [executionKey, input.sessionKey!]) {
+        expect(loadSessionEntry({ storePath, sessionKey: key })?.category).toBe("Automations");
+      }
+      return embeddedResult(input.sessionId);
+    });
+    let first: Awaited<ReturnType<typeof runSessionTurn>>;
+    try {
+      first = await runSessionTurn(cfg, job, boundSessionKey);
+      expect(register).toHaveBeenCalled();
+    } finally {
+      register.mockRestore();
+    }
+    expect(first.status, first.status === "error" ? first.error : undefined).toBe("ok");
+    expect(readSessionGroupCatalog().groups.map(({ name }) => name)).toContain("Automations");
+    // Removing the default does not erase the group's persisted assignment.
+    const second = await runSessionTurn(f.makeCfg(home, storePath), job, boundSessionKey);
+    expect(second.status, second.status === "error" ? second.error : undefined).toBe("ok");
+    expect(second.sessionId).not.toBe(first.sessionId);
+    expect(loadSessionEntry({ storePath, sessionKey: executionKey })?.category).toBe("Automations");
+    expect(loadSessionEntry({ storePath, sessionKey: boundSessionKey })).toMatchObject({
+      sessionId: "source-session",
+      category: "Source conversations",
+    });
+  });
+
+  it("keeps cron work running when group registration fails and repairs it on the next write", async ({
+    home,
+  }) => {
+    await useRealCronSessionState();
+    const storePath = await f.writeSessionStore(home, { delivery: { kind: "internal" } });
+    const cfg = f.makeCfg(home, storePath, { cron: { sessionGroup: "Automations" } });
+    const register = vi
+      .spyOn(sessionGroups, "ensureSessionGroupRegistered")
+      .mockRejectedValueOnce(new Error("catalog unavailable"));
+    const warn = vi.spyOn(logger, "logWarn").mockImplementation(() => {});
+    mockEmbeddedOk();
+    try {
+      const result = await runSessionTurn(cfg, sessionJob());
+      expect(result.status, result.status === "error" ? result.error : undefined).toBe("ok");
+      expect(h.runEmbeddedAgentMock).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("catalog unavailable"));
+      expect(loadSessionEntry({ storePath, sessionKey: "agent:main:cron:job-1" })?.category).toBe(
+        "Automations",
+      );
+      expect(readSessionGroupCatalog().groups.map(({ name }) => name)).toContain("Automations");
+    } finally {
+      register.mockRestore();
+      warn.mockRestore();
+    }
   });
 
   it("starts a fresh session id for each cron run", async ({ home }) => {

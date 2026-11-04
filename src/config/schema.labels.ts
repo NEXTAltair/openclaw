@@ -521,6 +521,7 @@ export const FIELD_LABELS: Record<string, string> = {
   "cron.creators.*.delivery": "Creator Automations Default Delivery",
   "cron.creators.*.failureAlert": "Creator Automations Failure Alert Route",
   "cron.sessionRetention": "Automations Session Retention",
+  "cron.sessionGroup": "Automations Session Group",
   transcripts: "Transcripts",
   "transcripts.enabled": "Transcripts Enabled",
   "transcripts.autoStart": "Transcripts Auto-start Sources",

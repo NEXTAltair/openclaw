@@ -33,6 +33,7 @@ function resolveWithStoredEntry(params?: {
   exactRunSession?: boolean;
   inferenceCaptured?: boolean;
   restoreArchived?: boolean;
+  sessionGroup?: string;
 }) {
   const sessionKey = params?.sessionKey ?? "webhook:stable-key";
   const sourceSessionKey = params?.sourceSessionKey;
@@ -49,7 +50,7 @@ function resolveWithStoredEntry(params?: {
   }
   vi.mocked(evaluateSessionFreshness).mockReturnValue({ fresh: params?.fresh ?? true });
   return resolveCronSession({
-    cfg: {},
+    cfg: { cron: { sessionGroup: params?.sessionGroup } },
     sessionKey,
     sourceSessionKey,
     agentId: "main",
@@ -62,6 +63,62 @@ function resolveWithStoredEntry(params?: {
     lifecycleTimestamps: {},
   });
 }
+
+it.each([
+  { name: "first run", expected: "Automations" },
+  { name: "rollover", entry: { category: "Custom" }, forceNew: true, expected: "Custom" },
+  { name: "stale run", entry: { category: "Custom" }, fresh: false, expected: "Custom" },
+  {
+    name: "current-bound run",
+    sourceSessionKey: "agent:main:dashboard:source",
+    entry: { category: "Source" },
+    forceNew: true,
+    expected: "Automations",
+  },
+  {
+    name: "current-bound existing target",
+    sourceSessionKey: "agent:main:dashboard:source",
+    entry: { category: "Source" },
+    targetEntry: { sessionId: "target", updatedAt: NOW_MS, category: "Custom" },
+    forceNew: true,
+    expected: "Custom",
+  },
+])("keeps automation groups on the execution row: $name", ({ expected, ...params }) => {
+  const result = resolveWithStoredEntry({
+    sessionKey: "agent:main:cron:grouped-job",
+    sessionGroup: "Automations",
+    ...params,
+  });
+  expect(result.sessionEntry.category).toBe(expected);
+  if (params.sourceSessionKey) {
+    expect(result.store[params.sourceSessionKey]?.category).toBe("Source");
+  }
+});
+
+it.each(["agent:main:main", "agent:main:dashboard:custom", "agent:main:hook:mail"])(
+  "does not regroup an explicit conversation or hook: %s",
+  (sessionKey) => {
+    const result = resolveWithStoredEntry({
+      sessionKey,
+      sessionGroup: "Automations",
+      entry: { category: "Conversation" },
+      fresh: false,
+    });
+    expect(result.sessionEntry.category).toBe("Conversation");
+  },
+);
+
+it("keeps a manual automation group when automatic grouping is unset", () => {
+  const result = resolveWithStoredEntry({
+    sessionKey: "agent:main:cron:grouped-job",
+    forceNew: true,
+    entry: { category: "Custom" },
+  });
+  expect(result.sessionEntry.category).toBe("Custom");
+  expect(
+    resolveWithStoredEntry({ sessionKey: "agent:main:cron:new-job" }).sessionEntry.category,
+  ).toBeUndefined();
+});
 
 const boundContext = {
   spawnedBy: "agent:main:parent",
