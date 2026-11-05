@@ -4,9 +4,14 @@
 // concrete core tool mint an alias projection and lets cron creator capture
 // translate that alias back to its canonical tool name. The registry is
 // in-memory object identity only — nothing here is persisted.
+import { types } from "node:util";
 import { asNonArrayRecord } from "@openclaw/normalization-core/record-coerce";
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import { requireValidExecTarget } from "../infra/exec-approvals-core.js";
+import {
+  getPluginOriginalValue,
+  getPluginValueInstance,
+} from "../plugins/plugin-instance-scope.js";
 import { markToolExecutionNotStarted } from "./tool-effect-receipt.js";
 import type { AnyAgentTool } from "./tools/common.js";
 
@@ -142,13 +147,32 @@ export function readCronScheduledToolProjection(tool: {
 export function copyCronScheduledToolProjection(source: AnyAgentTool, target: AnyAgentTool): void {
   const projection = scheduledToolProjections.get(source);
   if (
-    projection &&
-    source.name === projection.sourceToolName &&
-    target.name === projection.sourceToolName &&
-    source.execute === projection.execute &&
-    target.execute === projection.execute
+    !projection ||
+    source.name !== projection.sourceToolName ||
+    target.name !== projection.sourceToolName ||
+    source.execute !== projection.execute
   ) {
+    return;
+  }
+  if (target.execute === projection.execute) {
     scheduledToolProjections.set(target, projection);
+    return;
+  }
+  // Provider schema normalization returns a host-owned plugin view whose
+  // `execute` delegates to the tool the provider returned. The view keeps the
+  // alias identity only while that plain tool still holds the host-created
+  // executable; a provider Proxy can report descriptors it does not execute.
+  // Accepted edge: trusted plugin code that swaps the property back between
+  // binding and this copy is not fenced.
+  const instance = getPluginValueInstance(target);
+  const providerTool = instance ? getPluginOriginalValue(target, instance) : undefined;
+  if (
+    providerTool &&
+    !types.isProxy(providerTool) &&
+    Object.getOwnPropertyDescriptor(providerTool, "name")?.value === projection.sourceToolName &&
+    Object.getOwnPropertyDescriptor(providerTool, "execute")?.value === projection.execute
+  ) {
+    scheduledToolProjections.set(target, { ...projection, execute: target.execute });
   }
 }
 
