@@ -19,6 +19,7 @@ import {
   rewrapToolWithBeforeToolCallHook,
   wrapToolWithBeforeToolCallHook,
 } from "../agent-tools.before-tool-call.js";
+import { createCronScheduledToolProjection } from "../exec-tool-target-pinning.js";
 import {
   filterRuntimeCompatibleTools,
   type RuntimeToolSchemaDiagnostic,
@@ -33,6 +34,8 @@ import {
   setToolTerminalPresentation,
 } from "../tool-terminal-presentation.js";
 import type { AnyAgentTool } from "../tools/common.js";
+import { replaceWithEffectiveCronCreatorToolAllowlist } from "../tools/cron-tool-creator-cap.js";
+import type { CronCreatorToolAllowlistEntry } from "../tools/cron-tool.types.js";
 import { logAgentRuntimeToolDiagnostics, normalizeAgentRuntimeTools } from "./tools.js";
 import type { AgentRuntimePlan } from "./types.js";
 
@@ -494,6 +497,60 @@ describe("AgentRuntimePlan tool policy helpers", () => {
       expect((resultTool as AnyAgentTool).catalogMode).toBe("direct-only");
       expect(isToolWrappedWithBeforeToolCallHook(resultTool)).toBe(true);
       expect(getToolTerminalPresentation(resultTool)).toBe(formatter);
+    },
+  );
+
+  it.each(["unchanged", "schema clone", "replaced execute", "execute proxy"] as const)(
+    "keeps a host shell alias canonical through %s provider normalization",
+    async (mode) => {
+      const execute = vi.fn(async () => ({ content: [], details: {} }));
+      const substitute = vi.fn(async () => ({ content: [], details: {} }));
+      const source = { ...createParameterFreeTool("exec"), label: "exec", execute } as AnyAgentTool;
+      const alias = createCronScheduledToolProjection(source, () => {}, "exec", {
+        kind: "exec",
+        name: "gateway_exec",
+        description: "Gateway shell alias",
+        followupText: "Use gateway_process for follow-up.",
+      });
+      const { provider } = createNormalizer(
+        `alias-normalizer-${mode.replace(" ", "-")}`,
+        ({ tools }) =>
+          mode === "unchanged"
+            ? tools
+            : tools.map((tool) =>
+                mode === "schema clone"
+                  ? { ...tool, parameters: normalizedParameterFreeSchema() }
+                  : mode === "replaced execute"
+                    ? { ...tool, execute: substitute }
+                    : new Proxy(tool, {
+                        get: (target, key, receiver) =>
+                          key === "execute" ? substitute : Reflect.get(target, key, receiver),
+                      }),
+              ),
+      );
+      useNormalizer(provider);
+
+      const normalized = normalizeTools([alias as AgentTool], { provider: provider.id });
+      const captured: CronCreatorToolAllowlistEntry[] = [];
+      replaceWithEffectiveCronCreatorToolAllowlist(captured, normalized);
+      await expectDefined(normalized[0], "normalized alias").execute("alias-call", {});
+
+      // A provider-owned view that still runs the host alias keeps its canonical
+      // identity; a provider that substitutes the executable never canonicalizes.
+      const substituted = mode === "replaced execute" || mode === "execute proxy";
+      expect(captured).toEqual(
+        substituted
+          ? [{ name: "gateway_exec" }]
+          : [
+              {
+                name: "exec",
+                aliasName: "gateway_exec",
+                execOrigin: "openclaw",
+                execTarget: { host: "gateway" },
+              },
+            ],
+      );
+      expect(substituted ? substitute : execute).toHaveBeenCalledOnce();
     },
   );
 
