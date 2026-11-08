@@ -577,6 +577,7 @@ export function dispatchGatewayCronFinishedNotifications(params: {
   if (
     params.job &&
     params.resolveCronAgent &&
+    params.job.delivery?.mode !== "none" &&
     !params.quietTrigger &&
     (params.evt.status === "skipped" || (params.evt.status === "error" && params.runNotStarted))
   ) {

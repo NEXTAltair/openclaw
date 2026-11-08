@@ -249,6 +249,26 @@ describe("dispatchGatewayCronFinishedNotifications", () => {
     },
   );
 
+  it("does not write unstarted notices to the conversation for silent jobs", async () => {
+    const job = createCompletionWebhookJob();
+    job.delivery = { mode: "none" };
+    job.sessionKey = "agent:main:owner";
+    dispatchCompletion(job, {
+      evt: {
+        jobId: job.id,
+        action: "finished",
+        status: "skipped",
+        runAtMs,
+        summary: "Automation deferred while its agent is busy",
+      },
+      runNotStarted: true,
+      resolveCronAgent: () => ({ agentId: "main", cfg: {} }),
+      logger: { warn: vi.fn() },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(mocks.commitCronConversationResult).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["captured default", undefined, undefined, "alpha", "alpha"],
     ["explicit job owner", "gamma", "agent:session-owner:main", "alpha", "gamma"],
