@@ -1,9 +1,11 @@
+import AVFoundation
 import CoreLocation
 import Foundation
 import Network
 import Observation
 import OpenClawChatUI
 import os
+import Speech
 import Testing
 import UIKit
 @testable import OpenClaw
@@ -259,16 +261,16 @@ private func pendingHandoffDiagnostic(
 }
 
 @Suite(.serialized) struct GatewayReconnectErrorRetentionTests {
-    @Test @MainActor func `retained node timeout stays hidden while operator is connected`() throws {
+    @Test @MainActor func `retained node timeout stays hidden while operator is connected`() {
         let appModel = NodeAppModel()
         defer { appModel.disconnectGateway() }
         let stableID = "manual|gateway.example.com|443"
         appModel.connectedGatewayID = stableID
-        appModel.setOperatorConnected(true)
-        let problem = try #require(appModel._test_applyNodeGatewayConnectionError(URLError(.timedOut)))
+        appModel.apply(.connected(GatewaySessionInfo()), to: .operator, route: nil)
+        let problem = appModel._test_applyNodeGatewayConnectionError(URLError(.timedOut))
         #expect(appModel.gatewayProblemForToast == nil)
 
-        appModel.beginGatewayPreconnectVerification(stableID: stableID, statusText: "Checking gateway")
+        appModel.beginGatewayPreconnectVerification(stableID: stableID)
 
         #expect(appModel.lastGatewayProblem == problem)
         #expect(appModel.isOperatorGatewayConnected)
@@ -279,7 +281,7 @@ private func pendingHandoffDiagnostic(
         let appModel = NodeAppModel()
         defer { appModel.disconnectGateway() }
         let problem = pairingScopeUpgradeProblem
-        appModel.applyOperatorGatewayConnectionProblem(problem)
+        appModel.applyOperatorGatewayConnectionProblem(problem, route: nil)
 
         appModel.prepareForGatewayConnect(
             stableID: "manual|gateway.example.com|443",
@@ -287,24 +289,23 @@ private func pendingHandoffDiagnostic(
 
         #expect(appModel.lastGatewayProblem == problem)
         #expect(appModel.gatewayDisplayStatusText == problem.localizedStatusText)
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
+        #expect(appModel.canAutoReconnect)
 
         let cancelled = NSError(
             domain: URLError.errorDomain,
             code: URLError.cancelled.rawValue,
             userInfo: [NSLocalizedDescriptionKey: "gateway receive: cancelled"])
         let mapped = appModel.mapNodeGatewayConnectionError(cancelled)
-        #expect(mapped?.kind == .websocketCancelled)
-        #expect(mapped?.requestId == nil)
-        #expect(mapped?.pauseReconnect == false)
+        #expect(mapped.kind == .websocketCancelled)
+        #expect(mapped.requestId == nil)
+        #expect(!mapped.pauseReconnect)
     }
 
     @Test @MainActor func `active operator problem survives node cancellation`() {
         let appModel = NodeAppModel()
         defer { appModel.disconnectGateway() }
         let problem = pairingScopeUpgradeProblem
-        appModel.applyOperatorGatewayConnectionProblem(problem)
+        appModel.applyOperatorGatewayConnectionProblem(problem, route: nil)
 
         let cancelled = NSError(
             domain: URLError.errorDomain,
@@ -314,13 +315,12 @@ private func pendingHandoffDiagnostic(
 
         #expect(applied == problem)
         #expect(appModel.lastGatewayProblem == problem)
-        #expect(appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == "req-admin")
+        #expect(!appModel.canAutoReconnect)
 
-        appModel.clearOperatorGatewayConnectionProblemIfCurrent()
+        appModel.apply(.connected(GatewaySessionInfo()), to: .node, route: nil)
+        appModel.apply(.connected(GatewaySessionInfo()), to: .operator, route: nil)
         #expect(appModel.lastGatewayProblem == nil)
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
+        #expect(appModel.canAutoReconnect)
     }
 }
 
@@ -338,6 +338,33 @@ private func pendingHandoffDiagnostic(
         controller.setScenePhase(.background)
 
         #expect(!controller._test_hasOperatorFleetReconcileTask())
+    }
+
+    @Test @MainActor func `concurrent resolves of one Bonjour service both finish`() async {
+        @MainActor final class Completions { var count = 0 }
+        let appModel = NodeAppModel()
+        defer { appModel.disconnectGateway() }
+        let controller = GatewayConnectionController(
+            appModel: appModel,
+            startDiscovery: false,
+            ingress: makeOrdinaryIngress())
+        // A service nobody advertises: each resolve ends through NetService's 2 s timeout.
+        let endpoint = NWEndpoint.service(
+            name: "openclaw-missing-\(UUID().uuidString)",
+            type: "_openclaw-gw._tcp",
+            domain: "local.",
+            interface: nil)
+        let completions = Completions()
+
+        for _ in 0..<2 {
+            Task { @MainActor in
+                _ = await controller.resolveServiceEndpoint(endpoint)
+                completions.count += 1
+            }
+        }
+        await waitUntil(timeout: .seconds(10)) { completions.count == 2 }
+
+        #expect(completions.count == 2)
     }
 
     enum LocalNetworkUserAction: String, CaseIterable {
@@ -394,11 +421,11 @@ private func pendingHandoffDiagnostic(
         let disconnectedOwner = appModel.chatViewModelOwnerID
         let disconnectedRefreshIdentity = appModel.chatViewModelIdentityID
 
-        appModel.setOperatorConnected(true)
+        appModel.apply(.connected(GatewaySessionInfo()), to: .operator, route: nil)
         #expect(appModel.chatViewModelOwnerID == disconnectedOwner)
         #expect(appModel.chatViewModelIdentityID != disconnectedRefreshIdentity)
 
-        appModel.setOperatorConnected(false)
+        appModel.apply(.dropped, to: .operator, route: nil)
         #expect(appModel.chatViewModelOwnerID == disconnectedOwner)
         #expect(appModel.chatViewModelIdentityID == disconnectedRefreshIdentity)
     }
@@ -628,18 +655,6 @@ private func pendingHandoffDiagnostic(
         #expect(options.scopes.contains("operator.talk.secrets"))
     }
 
-    @Test func `permission upgrade polling preserves active connection attempts`() {
-        #expect(NodeAppModel.shouldRestartTalkPermissionUpgradePoll(
-            hasOperatorGatewayTask: false,
-            hasReconnectTask: false))
-        #expect(!NodeAppModel.shouldRestartTalkPermissionUpgradePoll(
-            hasOperatorGatewayTask: true,
-            hasReconnectTask: false))
-        #expect(!NodeAppModel.shouldRestartTalkPermissionUpgradePoll(
-            hasOperatorGatewayTask: false,
-            hasReconnectTask: true))
-    }
-
     @Test func `automatic talk permission upgrade retries recoverable failures`() {
         #expect(NodeAppModel.shouldRequestTalkPermissionUpgrade(
             isTalkEnabled: true,
@@ -739,36 +754,33 @@ private func pendingHandoffDiagnostic(
 
     @Test @MainActor func `operator pairing problem preserves primary gateway connection state`() {
         let appModel = NodeAppModel()
-        appModel.gatewayConnected = true
-        appModel.gatewayServerName = "gateway.example.com"
-        appModel.gatewayRemoteAddress = "127.0.0.1:53380"
+        appModel.apply(
+            .connected(GatewaySessionInfo(serverName: "gateway.example.com", remoteAddress: "127.0.0.1:53380")),
+            to: .node,
+            route: nil)
         let problem = pairingScopeUpgradeProblem
 
-        appModel.applyOperatorGatewayConnectionProblem(problem)
+        appModel.applyOperatorGatewayConnectionProblem(problem, route: nil)
 
         #expect(appModel.gatewayConnected)
         #expect(appModel.gatewayServerName == "gateway.example.com")
         #expect(appModel.gatewayRemoteAddress == "127.0.0.1:53380")
         #expect(appModel.lastGatewayProblem == problem)
-        #expect(appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == "req-admin")
+        #expect(!appModel.canAutoReconnect)
         #expect(GatewayStatusBuilder.build(appModel: appModel) == .error)
 
         appModel.clearGatewayConnectionProblem()
 
         #expect(appModel.lastGatewayProblem == problem)
-        #expect(appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == "req-admin")
+        #expect(!appModel.canAutoReconnect)
         #expect(GatewayStatusBuilder.build(appModel: appModel) == .error)
 
-        appModel.clearOperatorGatewayConnectionProblemIfCurrent()
+        appModel.apply(.connected(GatewaySessionInfo()), to: .operator, route: nil)
 
         #expect(appModel.gatewayConnected)
         #expect(appModel.gatewayServerName == "gateway.example.com")
         #expect(appModel.lastGatewayProblem == nil)
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
-        #expect(appModel.gatewayStatusText == "Connected")
+        #expect(appModel.canAutoReconnect)
         #expect(GatewayStatusBuilder.build(appModel: appModel) == .connected)
     }
 
@@ -784,7 +796,7 @@ private func pendingHandoffDiagnostic(
             message: "The gateway refused the connection.",
             retryable: true,
             pauseReconnect: false)
-        appModel.applyOperatorGatewayConnectionProblem(problem)
+        appModel.applyOperatorGatewayConnectionProblem(problem, route: nil)
 
         #expect(appModel.lastGatewayProblem == problem)
 
@@ -796,18 +808,14 @@ private func pendingHandoffDiagnostic(
         let replacementConfig = Self.makeGatewayConnectConfig(
             url: replacementURL,
             stableID: "manual|replacement.example.com|443")
-        appModel.beginGatewayPreconnectVerification(
-            stableID: replacementConfig.stableID,
-            statusText: "Verifying gateway TLS fingerprint…")
+        appModel.beginGatewayPreconnectVerification(stableID: replacementConfig.stableID)
         #expect(appModel.lastGatewayProblem == nil)
         #expect(appModel.gatewayDisplayStatusText == "Verifying gateway TLS fingerprint…")
 
         appModel.applyGatewayConnectConfig(replacementConfig, forceReconnect: true)
         #expect(appModel.lastGatewayProblem == nil)
-        #expect(appModel.gatewayStatusText == "Connecting…")
         #expect(appModel.gatewayDisplayStatusText == "Connecting…")
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
+        #expect(appModel.canAutoReconnect)
     }
 
     @Test @MainActor func `stable gateway owner preserves focused chat across route changes`() throws {
@@ -838,19 +846,16 @@ private func pendingHandoffDiagnostic(
         defer { appModel.disconnectGateway() }
         appModel.applyGatewayConnectConfig(Self.makeGatewayConnectConfig())
         let replacement = Self.makeGatewayConnectConfig(stableID: "manual|replacement.example.com|443")
-        appModel.beginGatewayPreconnectVerification(
-            stableID: replacement.stableID,
-            statusText: "Verifying gateway TLS fingerprint…")
+        appModel.beginGatewayPreconnectVerification(stableID: replacement.stableID)
 
-        appModel.applyOperatorGatewayConnectionProblem(pairingScopeUpgradeProblem)
-        #expect(appModel.gatewayPairingRequestId == pairingScopeUpgradeProblem.requestId)
+        appModel.applyOperatorGatewayConnectionProblem(pairingScopeUpgradeProblem, route: nil)
+        #expect(!appModel.canAutoReconnect)
 
         appModel.applyGatewayConnectConfig(replacement)
 
         #expect(appModel.lastGatewayProblem == nil)
         #expect(appModel.gatewayDisplayStatusText == "Connecting…")
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
+        #expect(appModel.canAutoReconnect)
     }
 
     @Test(arguments: [false, true])
@@ -860,17 +865,15 @@ private func pendingHandoffDiagnostic(
         appModel.applyGatewayConnectConfig(Self.makeGatewayConnectConfig())
         let replacement = Self.makeGatewayConnectConfig(stableID: "manual|replacement.example.com|443")
         let generation = appModel.beginGatewayConnectAttempt()
-        appModel.beginGatewayPreconnectVerification(
-            stableID: replacement.stableID,
-            statusText: "Verifying gateway TLS fingerprint…")
+        appModel.beginGatewayPreconnectVerification(stableID: replacement.stableID)
         appModel.failGatewayPreconnectVerification(
             preconnectTimeoutProblem,
             stableID: replacement.stableID,
             host: nil,
             expectedGeneration: generation)
-        appModel.applyOperatorGatewayConnectionProblem(pairingScopeUpgradeProblem)
+        appModel.applyOperatorGatewayConnectionProblem(pairingScopeUpgradeProblem, route: nil)
         if oldRouteSucceeds {
-            appModel.clearOperatorGatewayConnectionProblemIfCurrent()
+            appModel.apply(.connected(GatewaySessionInfo()), to: .operator, route: nil)
             appModel.clearGatewayConnectionProblem()
             #expect(appModel.lastGatewayProblem == nil)
         } else {
@@ -881,14 +884,10 @@ private func pendingHandoffDiagnostic(
 
         #expect(appModel.lastGatewayProblem == preconnectTimeoutProblem)
         #expect(appModel.gatewayDisplayStatusText == preconnectTimeoutProblem.localizedStatusText)
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
-        #expect(appModel.gatewayAutoReconnectEnabled)
+        #expect(appModel.canAutoReconnect)
 
         appModel.clearGatewayConnectionProblem()
-        appModel.beginGatewayPreconnectVerification(
-            stableID: replacement.stableID,
-            statusText: "Verifying gateway TLS fingerprint…")
+        appModel.beginGatewayPreconnectVerification(stableID: replacement.stableID)
         #expect(appModel.lastGatewayProblem == nil)
     }
 
@@ -898,9 +897,7 @@ private func pendingHandoffDiagnostic(
         let original = Self.makeGatewayConnectConfig()
         appModel.applyGatewayConnectConfig(original)
         let generation = appModel.beginGatewayConnectAttempt()
-        appModel.beginGatewayPreconnectVerification(
-            stableID: "manual|replacement.example.com|443",
-            statusText: "Verifying gateway TLS fingerprint…")
+        appModel.beginGatewayPreconnectVerification(stableID: "manual|replacement.example.com|443")
         appModel.failGatewayPreconnectVerification(
             preconnectTimeoutProblem,
             stableID: "manual|replacement.example.com|443",
@@ -910,9 +907,8 @@ private func pendingHandoffDiagnostic(
         appModel.applyGatewayConnectConfig(original)
 
         #expect(appModel.lastGatewayProblem == nil)
-        #expect(appModel.gatewayDisplayStatusText == "Connecting…")
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
+        #expect(GatewayStatusBuilder.build(appModel: appModel) == .connecting)
+        #expect(appModel.canAutoReconnect)
     }
 
     @Test(arguments: [false, true])
@@ -922,9 +918,7 @@ private func pendingHandoffDiagnostic(
         appModel.applyGatewayConnectConfig(Self.makeGatewayConnectConfig())
         let replacementID = "manual|replacement.example.com|443"
         let generation = appModel.beginGatewayConnectAttempt()
-        appModel.beginGatewayPreconnectVerification(
-            stableID: replacementID,
-            statusText: "Verifying gateway TLS fingerprint…")
+        appModel.beginGatewayPreconnectVerification(stableID: replacementID)
         appModel.failGatewayPreconnectVerification(
             preconnectTimeoutProblem,
             stableID: replacementID,
@@ -937,14 +931,10 @@ private func pendingHandoffDiagnostic(
                 ingress: makeOrdinaryIngress())
             controller.cancelPendingConnectionAttempts()
         } else {
-            appModel.beginGatewayPreconnectVerification(
-                stableID: "manual|third.example.com|443",
-                statusText: "Verifying gateway TLS fingerprint…")
+            appModel.beginGatewayPreconnectVerification(stableID: "manual|third.example.com|443")
         }
 
-        appModel.beginGatewayPreconnectVerification(
-            stableID: replacementID,
-            statusText: "Verifying gateway TLS fingerprint…")
+        appModel.beginGatewayPreconnectVerification(stableID: replacementID)
         #expect(appModel.lastGatewayProblem == nil)
     }
 
@@ -971,43 +961,36 @@ private func pendingHandoffDiagnostic(
         let config = Self.makeGatewayConnectConfig()
         appModel.applyGatewayConnectConfig(config)
         let problem = pairingScopeUpgradeProblem
-        appModel.applyOperatorGatewayConnectionProblem(problem)
-        #expect(appModel.gatewayPairingPaused)
+        appModel.applyOperatorGatewayConnectionProblem(problem, route: nil)
+        #expect(!appModel.canAutoReconnect)
 
         appModel.applyGatewayConnectConfig(config, forceReconnect: true)
 
         #expect(appModel.lastGatewayProblem == problem)
         #expect(appModel.gatewayDisplayStatusText == problem.localizedStatusText)
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
+        #expect(appModel.canAutoReconnect)
 
         appModel.clearGatewayConnectionProblem()
 
         #expect(appModel.lastGatewayProblem == nil)
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
+        #expect(appModel.canAutoReconnect)
     }
 
-    @Test @MainActor func `gateway preflight retains only the readable problem snapshot`() {
+    @Test @MainActor func `gateway preflight keeps the active route pause`() {
         let appModel = NodeAppModel()
         defer { appModel.disconnectGateway() }
         let config = Self.makeGatewayConnectConfig()
         appModel.applyGatewayConnectConfig(config)
         let problem = pairingScopeUpgradeProblem
-        appModel.applyOperatorGatewayConnectionProblem(problem)
+        appModel.applyOperatorGatewayConnectionProblem(problem, route: nil)
 
-        appModel.beginGatewayPreconnectVerification(
-            stableID: config.stableID,
-            statusText: "Verifying gateway TLS fingerprint…")
+        appModel.beginGatewayPreconnectVerification(stableID: config.stableID)
 
         #expect(appModel.lastGatewayProblem == problem)
         #expect(appModel.gatewayDisplayStatusText == problem.localizedStatusText)
-        #expect(appModel.gatewayStatusText == "Verifying gateway TLS fingerprint…")
-        #expect(!appModel.gatewayPairingPaused)
-        #expect(appModel.gatewayPairingRequestId == nil)
-
-        appModel.clearGatewayConnectionProblem()
-        #expect(appModel.lastGatewayProblem == nil)
+        #expect(appModel.gatewayConnectionProgress == .verifyingTLS)
+        // The old route stays paused until the new target commits.
+        #expect(!appModel.canAutoReconnect)
     }
 
     @Test func `gateway connect config keeps stable owner bytes exact`() {
@@ -2197,14 +2180,14 @@ private func pendingHandoffDiagnostic(
             message: "Upgrade the gateway before reconnecting.",
             retryable: false,
             pauseReconnect: true)
-        appModel.applyOperatorGatewayConnectionProblem(problem)
+        appModel.applyOperatorGatewayConnectionProblem(problem, route: nil)
 
         controller.cancelPendingConnectionAttempts()
         for _ in 0..<10 {
             await Task.yield()
         }
 
-        #expect(!appModel.gatewayPairingPaused)
+        #expect(!appModel.canAutoReconnect)
         #expect(appModel.lastGatewayProblem == problem)
         #expect(appModel.activeGatewayConnectConfig?.hasSameConnectionInputs(as: currentConfig) == true)
         #expect(!appModel._test_hasGatewayLoopTasks().node)
@@ -3266,7 +3249,7 @@ private func pendingHandoffDiagnostic(
         appModel.focusChatSession(focusedSessionKey)
         await appModel.restartGatewaySessionsAfterForegroundStaleConnection()
 
-        #expect(appModel.gatewayStatusText == "Reconnecting…")
+        #expect(appModel.connection.node == .connecting(reconnect: true))
         #expect(appModel.activeGatewayConnectConfig?.hasSameConnectionInputs(as: config) == true)
         #expect(appModel.chatSessionKey == focusedSessionKey)
         #expect(appModel._test_hasGatewayLoopTasks().node)
@@ -3563,4 +3546,63 @@ private func pendingHandoffDiagnostic(
                 commands: ["notify", "location.get"],
                 permissions: ["screen": true]))
     }
+
+    @Test @MainActor func `media authorization from an in-app prompt refreshes the registration`() async throws {
+        let isolation = await GatewayRegistryTestIsolation()
+        defer { isolation.restore() }
+        try await withUserDefaults(["gateway.autoconnect": false]) {
+            let media = StubMediaAuthorization()
+            let appModel = NodeAppModel(
+                locationService: MockLocationService(authorizationStatus: .denied),
+                mediaAuthorizationProvider: { media.snapshot })
+            defer { appModel.disconnectGateway() }
+            let controller = GatewayConnectionController(appModel: appModel, startDiscovery: false)
+            let options = await controller.makeConnectOptions(
+                deviceAuthGatewayID: nil,
+                allowStoredDeviceAuth: false)
+            let config = try GatewayConnectConfig(
+                url: #require(URL(string: "ws://127.0.0.1:1")),
+                stableID: "manual|127.0.0.1|1",
+                tls: nil,
+                token: nil,
+                bootstrapToken: nil,
+                password: nil,
+                nodeOptions: options)
+            appModel.applyGatewayConnectConfig(config)
+            #expect(appModel.activeGatewayConnectConfig?.nodeOptions.permissions["microphone"] == false)
+
+            // Talk's first-use prompts grant microphone and speech; dismissing the alert reactivates the scene.
+            media.snapshot.microphone = .authorized
+            media.snapshot.speechRecognition = .authorized
+            appModel.setScenePhase(.active)
+            #expect(await Self.waitForAdvertisedPermission("microphone", true, appModel: appModel))
+            #expect(appModel.activeGatewayConnectConfig?.nodeOptions.permissions["speechRecognition"] == true)
+            #expect(appModel.activeGatewayConnectConfig?.nodeOptions.permissions["camera"] == false)
+            #expect(appModel.activeGatewayConnectConfig?.stableID == config.stableID)
+            withExtendedLifetime(controller) {}
+        }
+    }
+
+    @MainActor
+    private static func waitForAdvertisedPermission(
+        _ name: String,
+        _ granted: Bool,
+        appModel: NodeAppModel) async -> Bool
+    {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while appModel.activeGatewayConnectConfig?.nodeOptions.permissions[name] != granted,
+              ContinuousClock.now < deadline
+        {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return appModel.activeGatewayConnectConfig?.nodeOptions.permissions[name] == granted
+    }
+}
+
+@MainActor
+private final class StubMediaAuthorization {
+    var snapshot = MediaAuthorizationSnapshot(
+        camera: .notDetermined,
+        microphone: .notDetermined,
+        speechRecognition: .notDetermined)
 }
