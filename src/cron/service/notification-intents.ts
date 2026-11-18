@@ -22,7 +22,7 @@ export function captureCronNotificationRouting(
 
 export type CronNotificationJob = Pick<
   CronJob,
-  "id" | "name" | "agentId" | "sessionTarget" | "sessionKey" | "wakeMode"
+  "id" | "name" | "agentId" | "sessionTarget" | "sessionKey" | "wakeMode" | "owner"
 > & {
   /**
    * The selected conversation that receives primary-route and safety notices. `null` marks a
@@ -46,6 +46,7 @@ export function cronNotificationJob(
     agentId: job.agentId,
     sessionTarget: job.sessionTarget,
     sessionKey: job.sessionKey,
+    owner: job.owner ? { ...job.owner } : undefined,
     wakeMode: job.wakeMode,
     ...(deliveryConversation !== undefined
       ? { deliveryConversation: deliveryConversation && { ...deliveryConversation } }
@@ -67,8 +68,15 @@ export function resolveCronNotificationQueueOwner(
   if (job.deliveryConversation !== undefined) {
     return { agentId: tryResolveCronJobEffectiveAgentId(job), sessionKey: undefined };
   }
-  const sessionKey = kind === "failure-alert" ? resolveCronDeliverySessionKey(job) : job.sessionKey;
+  const owner = kind === "auto-disabled" ? job.owner : undefined;
+  const ownerSessionKey = owner?.sessionKey?.trim() || undefined;
+  const sessionKey =
+    kind === "failure-alert"
+      ? resolveCronDeliverySessionKey(job)
+      : (ownerSessionKey ?? job.sessionKey);
   const agentId =
+    normalizeOptionalAgentId(owner?.agentId) ??
+    normalizeOptionalAgentId(parseAgentSessionKey(ownerSessionKey)?.agentId) ??
     normalizeOptionalAgentId(job.agentId) ??
     normalizeOptionalAgentId(parseAgentSessionKey(sessionKey)?.agentId);
   return { agentId, sessionKey };
@@ -109,7 +117,7 @@ export type CronNotificationIntent = { routing?: CronNotificationRouting } & (
       kind: "failure-repair";
       job: CronNotificationJob;
       text: string;
-      fallback?: CronFailureAlertNotification;
+      fallback: CronFailureAlertNotification;
     }
   | CronFailureAlertNotification
 );

@@ -1,4 +1,5 @@
 import type { ReplyPayload } from "../auto-reply/reply-payload.js";
+import type { TranscriptPin } from "../config/sessions/session-delivery-generation.types.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { commitBackgroundPayloadsToSession } from "../sessions/background-result-payloads.js";
 import type { CronCompletionDeliveryFence } from "./delivery-attempt-fence.js";
@@ -11,7 +12,8 @@ export type CronConversationResultParams = {
   agentId: string;
   jobId: string;
   runStartedAt: number;
-  conversation: { sessionKey: string; sessionId: string; lifecycleRevision?: string };
+  conversation: { sessionKey: string };
+  selectedTranscript?: TranscriptPin;
   payloads: ReplyPayload[];
   signal?: AbortSignal;
   deliveryAttemptFence: CronCompletionDeliveryFence | null;
@@ -30,10 +32,7 @@ export async function commitCronConversationResult(
   const committed = await commitBackgroundPayloadsToSession({
     agentId: params.agentId,
     sessionKey: params.conversation.sessionKey,
-    expectedGeneration: {
-      sessionId: params.conversation.sessionId,
-      lifecycleRevision: params.conversation.lifecycleRevision,
-    },
+    selectedTranscript: params.selectedTranscript,
     payloads: params.payloads,
     idempotencyKey:
       params.kind === undefined || params.kind === "result"

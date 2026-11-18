@@ -139,7 +139,8 @@ export async function settleSessionEventTurn(params: {
   runStartedAt: number;
   signal: AbortSignal;
   assertCurrent: () => void;
-  onFailure: (error: string) => void;
+  /** `generic` marks the placeholder for a failed turn that carried no detail. */
+  onFailure: (error: string, generic: boolean) => void;
   runId: string;
   deliveryEvidence: Parameters<SessionEventExecution["onTerminal"]>[2];
   prepareCurrent: () => Promise<void>;
@@ -157,11 +158,12 @@ export async function settleSessionEventTurn(params: {
 > {
   const { automation, runId, deliveryEvidence } = params;
   if (params.outcome !== "completed") {
-    params.onFailure(
+    const detail =
       deliveryEvidence?.meta?.error?.message ||
-        deliveryEvidence?.payloads?.find((payload) => payload.isError && payload.text?.trim())
-          ?.text ||
-        `Session event execution ${params.outcome}`,
+      deliveryEvidence?.payloads?.find((payload) => payload.isError && payload.text?.trim())?.text;
+    params.onFailure(
+      detail || `Session event execution ${params.outcome}`,
+      !detail && params.outcome === "failed",
     );
   }
   await params.prepareCurrent();
@@ -237,11 +239,7 @@ export async function settleSessionEventTurn(params: {
             agentId: params.agentId,
             jobId: automation.job.id,
             runStartedAt: automation.job.state.runningAtMs ?? params.runStartedAt,
-            conversation: {
-              sessionKey: params.sessionKey,
-              sessionId: binding.sessionId,
-              lifecycleRevision: binding.lifecycleRevision,
-            },
+            conversation: { sessionKey: params.sessionKey },
             payloads,
             signal: params.signal,
             deliveryAttemptFence: {
@@ -305,6 +303,7 @@ export async function settleSessionEventTurn(params: {
         jobId: automation.job.id,
         runStartedAt: automation.job.state.runningAtMs ?? params.runStartedAt,
         conversation: selected,
+        selectedTranscript: selected,
         payloads: visiblePayloads,
         signal: params.signal,
         deliveryAttemptFence: {

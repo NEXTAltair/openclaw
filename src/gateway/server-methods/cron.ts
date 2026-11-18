@@ -309,6 +309,9 @@ export const cronHandlers: GatewayRequestHandlers = {
       );
       if (
         creatorScope ||
+        // Explicit UI enable also reauthorizes historical jobs that predate source capture.
+        // The capture owner still validates the live direct-device authority.
+        (!sealed && patch.enabled === true && client?.internal?.authenticatedControlUi === true) ||
         (sourceBound &&
           (requiresStreamExec ||
             patch.enabled === true ||

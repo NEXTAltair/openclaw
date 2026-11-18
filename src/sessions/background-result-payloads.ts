@@ -3,6 +3,7 @@ import { mediaKindFromMime } from "@openclaw/media-core/constants";
 import { isAudioFileName, mimeTypeFromFilePath } from "@openclaw/media-core/mime";
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import { copyReplyPayloadMetadata, type ReplyPayload } from "../auto-reply/reply-payload.js";
+import type { TranscriptPin } from "../config/sessions/session-delivery-generation.types.js";
 import { resolveMirroredTranscriptText } from "../config/sessions/transcript-mirror.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import {
@@ -38,11 +39,11 @@ export type BackgroundPayloadsCommit =
   | { ok: true; skipped?: boolean; diagnostics?: string }
   | { ok: false; reason: string };
 
-/** Inputs for committing delivered payloads into one conversation generation. */
+/** Inputs for committing delivered payloads into one conversation. */
 export type BackgroundPayloadsCommitParams = {
   agentId: string;
   sessionKey: string;
-  expectedGeneration: { sessionId: string; lifecycleRevision: string | undefined };
+  selectedTranscript?: TranscriptPin;
   /** The payloads that were shown; the stored row is their transcript projection. */
   payloads: readonly ReplyPayload[];
   idempotencyKey: string;
@@ -74,7 +75,7 @@ export async function commitBackgroundPayloadsToSession(
     return await commitBackgroundResultToSession({
       agentId: params.agentId,
       sessionKey: params.sessionKey,
-      expectedGeneration: params.expectedGeneration,
+      selectedTranscript: params.selectedTranscript,
       text,
       prepareDisplayContent: async () => {
         preparedContent = await buildResultDisplayContent({

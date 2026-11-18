@@ -57,6 +57,8 @@ export type { CronAddOptions } from "./job-options.types.js";
 /** Transient internal context delivered beside, but never projected into, a CronEvent. */
 type CronEventContext = {
   runNotStarted?: boolean;
+  /** Expected scheduling deferral (outside active hours, or idle-only while busy). */
+  admissionDeferredReason?: "busy" | "active-hours";
   quietTrigger?: boolean;
   failureNotificationDetail?: CronFailureNotificationDetail;
 };
@@ -372,10 +374,7 @@ type CronServiceDepsInternal = Omit<CronServiceDeps, "env" | "nowMs"> & {
 
 /** Dependencies consumed by job policy before its mutation is committed. */
 export type CronJobPolicyContext = {
-  deps: Pick<
-    CronServiceDepsInternal,
-    "cronConfig" | "nowMs" | "log" | "failureRepairTimeoutMs" | "defaultAgentId"
-  > &
+  deps: Pick<CronServiceDepsInternal, "cronConfig" | "nowMs" | "log" | "defaultAgentId"> &
     Partial<Pick<CronServiceDepsInternal, "resolveDefaultAgentId">>;
   /** Resolved by the host for this exact job while its recovery transaction holds the row. */
   preparedFailureAlert?: { jobId: string; value: ResolvedFailureAlert | null };
@@ -627,6 +626,8 @@ export type CronStatusSummary = {
   sqlitePath: string;
   jobs: number;
   nextWakeAtMs: number | null;
+  /** Account-scoped jobs that cannot resolve a creator channel and fail closed until reauthorized. */
+  reauthorizationRequired: number;
 };
 
 export type CronRunResult =
